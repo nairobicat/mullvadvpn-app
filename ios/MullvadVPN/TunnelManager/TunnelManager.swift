@@ -289,7 +289,7 @@ final class TunnelManager: TunnelManagerStateDelegate {
         }
     }
 
-    func startTunnel() {
+    func startTunnel(completionHandler: ((OperationCompletion<(), TunnelManager.Error>) -> Void)? = nil) {
         let operation = StartTunnelOperation(
             dispatchQueue: stateQueue,
             state: state,
@@ -307,6 +307,10 @@ final class TunnelManager: TunnelManagerStateDelegate {
 
                 if case .failure(let error) = completion {
                     self.logger.error(chainedError: error, message: "Failed to start the tunnel.")
+                }
+
+                DispatchQueue.main.async {
+                    completionHandler?(completion)
                 }
             })
 
@@ -331,7 +335,7 @@ final class TunnelManager: TunnelManagerStateDelegate {
         operationQueue.addOperation(operation)
     }
 
-    func stopTunnel() {
+    func stopTunnel(completionHandler: ((OperationCompletion<(), TunnelManager.Error>) -> Void)? = nil) {
         let operation = StopTunnelOperation(
             dispatchQueue: stateQueue,
             state: state
@@ -347,6 +351,10 @@ final class TunnelManager: TunnelManagerStateDelegate {
                         observer.tunnelManager(self, didFailWithError: error)
                     }
                 }
+            }
+
+            DispatchQueue.main.async {
+                completionHandler?(completion)
             }
         }
 

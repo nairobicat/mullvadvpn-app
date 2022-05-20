@@ -11,6 +11,7 @@ import BackgroundTasks
 import StoreKit
 import UserNotifications
 import Logging
+import Intents
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -80,6 +81,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             sceneDelegate?.setupScene(windowFactory: ClassicWindowFactory())
 
             return true
+        }
+    }
+
+    func application(_ application: UIApplication, handlerFor intent: INIntent) -> Any? {
+        switch intent {
+        case is StartVPNIntent:
+            return StartVPNIntentHandler()
+        case is StopVPNIntent:
+            return StopVPNIntentHandler()
+        case is SelectNextVPNRelayIntent:
+            return SelectNextVPNRelayIntentHandler()
+        default:
+            return nil
         }
     }
 
