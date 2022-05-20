@@ -39,7 +39,7 @@ extension TunnelManager {
         case deleteSettings(Swift.Error)
 
         /// Failure to read relays cache.
-        case readRelays(RelayCache.Error)
+        case readRelays
 
         /// Failure to find a relay satisfying the given constraints.
         case cannotSatisfyRelayConstraints
