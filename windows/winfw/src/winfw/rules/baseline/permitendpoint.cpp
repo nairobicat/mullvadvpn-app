@@ -36,6 +36,8 @@ std::unique_ptr<ConditionProtocol> CreateProtocolCondition(WinFwProtocol protoco
 	{
 		case WinFwProtocol::Tcp: return ConditionProtocol::Tcp();
 		case WinFwProtocol::Udp: return ConditionProtocol::Udp();
+		case WinFwProtocol::Icmp: return ConditionProtocol::Icmp();
+		case WinFwProtocol::IcmpV6: return ConditionProtocol::IcmpV6();
 		default:
 		{
 			THROW_ERROR("Missing case handler in switch clause");

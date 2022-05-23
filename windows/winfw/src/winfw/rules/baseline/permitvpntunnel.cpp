@@ -4,20 +4,68 @@
 #include <libwfp/filterbuilder.h>
 #include <libwfp/conditionbuilder.h>
 #include <libwfp/conditions/conditioninterface.h>
+#include <libwfp/conditions/conditionip.h>
+#include <libwfp/conditions/conditionport.h>
+#include <libwfp/conditions/conditionprotocol.h>
+#include <libcommon/error.h>
 
 using namespace wfp::conditions;
+
+namespace
+{
+
+std::unique_ptr<ConditionProtocol> CreateProtocolCondition(WinFwProtocol protocol)
+{
+	switch (protocol)
+	{
+		case WinFwProtocol::Tcp: return ConditionProtocol::Tcp();
+		case WinFwProtocol::Udp: return ConditionProtocol::Udp();
+		case WinFwProtocol::Icmp: return ConditionProtocol::Icmp();
+		case WinFwProtocol::IcmpV6: return ConditionProtocol::IcmpV6();
+		default:
+		{
+			THROW_ERROR("Missing case handler in switch clause");
+		}
+	};
+}
+
+bool ProtocolHasPort(WinFwProtocol protocol)
+{
+	switch (protocol)
+	{
+		case WinFwProtocol::Tcp:
+		case WinFwProtocol::Udp:
+			return true;
+		case WinFwProtocol::Icmp:
+		case WinFwProtocol::IcmpV6:
+			return false;
+		default:
+		{
+			THROW_ERROR("Missing case handler in switch clause");
+		}
+	};
+}
+
+}
 
 namespace rules::baseline
 {
 
-PermitVpnTunnel::PermitVpnTunnel(const std::wstring &tunnelInterfaceAlias)
+PermitVpnTunnel::PermitVpnTunnel(
+	const std::wstring &tunnelInterfaceAlias,
+	const std::optional<Endpoint> &onlyEndpoint
+)
 	: m_tunnelInterfaceAlias(tunnelInterfaceAlias)
+	, m_tunnelOnlyEndpoint(onlyEndpoint)
 {
 }
 
 bool PermitVpnTunnel::apply(IObjectInstaller &objectInstaller)
 {
 	wfp::FilterBuilder filterBuilder;
+
+	bool includeV4 = !m_tunnelOnlyEndpoint.has_value() || m_tunnelOnlyEndpoint->ip.type() == wfp::IpAddress::Ipv4;
+	bool includeV6 = !m_tunnelOnlyEndpoint.has_value() || m_tunnelOnlyEndpoint->ip.type() == wfp::IpAddress::Ipv6;
 
 	//
 	// #1 Permit outbound connections, IPv4.
@@ -33,10 +81,21 @@ bool PermitVpnTunnel::apply(IObjectInstaller &objectInstaller)
 		.weight(wfp::FilterBuilder::WeightClass::Medium)
 		.permit();
 
+	if (includeV4)
 	{
 		wfp::ConditionBuilder conditionBuilder(FWPM_LAYER_ALE_AUTH_CONNECT_V4);
 
 		conditionBuilder.add_condition(ConditionInterface::Alias(m_tunnelInterfaceAlias));
+
+		if (m_tunnelOnlyEndpoint.has_value())
+		{
+			conditionBuilder.add_condition(ConditionIp::Remote(m_tunnelOnlyEndpoint->ip));
+			if (ProtocolHasPort(m_tunnelOnlyEndpoint->protocol))
+			{
+				conditionBuilder.add_condition(ConditionPort::Remote(m_tunnelOnlyEndpoint->port));
+			}
+			conditionBuilder.add_condition(CreateProtocolCondition(m_tunnelOnlyEndpoint->protocol));
+		}
 
 		if (!objectInstaller.addFilter(filterBuilder, conditionBuilder))
 		{
@@ -53,11 +112,26 @@ bool PermitVpnTunnel::apply(IObjectInstaller &objectInstaller)
 		.name(L"Permit outbound connections on tunnel interface (IPv6)")
 		.layer(FWPM_LAYER_ALE_AUTH_CONNECT_V6);
 
-	wfp::ConditionBuilder conditionBuilder(FWPM_LAYER_ALE_AUTH_CONNECT_V6);
+	if (includeV6)
+	{
+		wfp::ConditionBuilder conditionBuilder(FWPM_LAYER_ALE_AUTH_CONNECT_V6);
 
-	conditionBuilder.add_condition(ConditionInterface::Alias(m_tunnelInterfaceAlias));
+		conditionBuilder.add_condition(ConditionInterface::Alias(m_tunnelInterfaceAlias));
 
-	return objectInstaller.addFilter(filterBuilder, conditionBuilder);
+		if (m_tunnelOnlyEndpoint.has_value())
+		{
+			conditionBuilder.add_condition(ConditionIp::Remote(m_tunnelOnlyEndpoint->ip));
+			if (ProtocolHasPort(m_tunnelOnlyEndpoint->protocol))
+			{
+				conditionBuilder.add_condition(ConditionPort::Remote(m_tunnelOnlyEndpoint->port));
+			}
+			conditionBuilder.add_condition(CreateProtocolCondition(m_tunnelOnlyEndpoint->protocol));
+		}
+
+		return objectInstaller.addFilter(filterBuilder, conditionBuilder);
+	}
+
+	return true;
 }
 
 }
