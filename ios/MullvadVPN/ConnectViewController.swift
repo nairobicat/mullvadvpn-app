@@ -410,12 +410,10 @@ class ConnectViewController: UIViewController, MKMapViewDelegate, RootContainmen
     }
 
     func mapView(_ mapView: MKMapView, regionWillChangeAnimated animated: Bool) {
-        print("mapView regionWillChangeAnimated: \(animated)")
+        // no-op
     }
 
     func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
-        print("mapView regionDidChangeAnimated: \(animated)")
-
         mapRegionAnimationDidEnd?()
         mapRegionAnimationDidEnd = nil
     }
