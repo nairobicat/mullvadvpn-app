@@ -311,7 +311,9 @@ final class TunnelManager: TunnelManagerStateDelegate {
             })
 
 
-        let backgroundTaskIdentifier = UIApplication.shared.beginBackgroundTask(withName: "Start tunnel") {
+        let backgroundTaskIdentifier = UIApplication.shared.beginBackgroundTask(
+            withName: "Start tunnel"
+        ) {
             operation.cancel()
         }
 
@@ -319,7 +321,12 @@ final class TunnelManager: TunnelManagerStateDelegate {
             UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
         }
 
-        exclusivityController.addOperation(operation, categories: [OperationCategory.manageTunnelProvider])
+        exclusivityController.addOperation(
+            operation,
+            categories: [
+                OperationCategory.manageTunnelProvider,
+                OperationCategory.tunnelStateUpdate
+            ])
 
         operationQueue.addOperation(operation)
     }
@@ -343,7 +350,10 @@ final class TunnelManager: TunnelManagerStateDelegate {
             }
         }
 
-        let backgroundTaskIdentifier = UIApplication.shared.beginBackgroundTask(withName: "Stop tunnel") {
+        let backgroundTaskIdentifier = UIApplication.shared.beginBackgroundTask(
+            withName: "Stop tunnel"
+        )
+        {
             operation.cancel()
         }
 
@@ -351,7 +361,13 @@ final class TunnelManager: TunnelManagerStateDelegate {
             UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
         }
 
-        exclusivityController.addOperation(operation, categories: [OperationCategory.manageTunnelProvider])
+        exclusivityController.addOperation(
+            operation,
+            categories: [
+                OperationCategory.manageTunnelProvider,
+                OperationCategory.tunnelStateUpdate
+            ]
+        )
 
         operationQueue.addOperation(operation)
     }
@@ -591,7 +607,11 @@ final class TunnelManager: TunnelManagerStateDelegate {
 
     // MARK: - TunnelManagerStateDelegate
 
-    func tunnelManagerState(_ state: State, didChangeLoadedConfiguration isLoadedConfiguration: Bool) {
+    func tunnelManagerState(
+        _ state: State,
+        didChangeLoadedConfiguration isLoadedConfiguration: Bool
+    )
+    {
         DispatchQueue.main.async {
             self.observerList.forEach { observer in
                 if isLoadedConfiguration {
@@ -601,15 +621,23 @@ final class TunnelManager: TunnelManagerStateDelegate {
         }
     }
 
-    func tunnelManagerState(_ state: TunnelManager.State, didChangeTunnelSettings newTunnelSettinggs: TunnelSettingsV2?) {
+    func tunnelManagerState(
+        _ state: TunnelManager.State,
+        didChangeTunnelSettings newTunnelSettings: TunnelSettingsV2?
+    )
+    {
         DispatchQueue.main.async {
             self.observerList.forEach { observer in
-                observer.tunnelManager(self, didUpdateTunnelSettings: newTunnelSettinggs)
+                observer.tunnelManager(self, didUpdateTunnelSettings: newTunnelSettings)
             }
         }
     }
 
-    func tunnelManagerState(_ state: TunnelManager.State, didChangeTunnelStatus newTunnelStatus: TunnelStatus) {
+    func tunnelManagerState(
+        _ state: TunnelManager.State,
+        didChangeTunnelStatus newTunnelStatus: TunnelStatus
+    )
+    {
         logger.info("Status: \(newTunnelStatus).")
 
         switch newTunnelStatus.state {
@@ -630,7 +658,12 @@ final class TunnelManager: TunnelManagerStateDelegate {
         }
     }
 
-    func tunnelManagerState(_ state: TunnelManager.State, didChangeTunnelProvider newTunnelObject: Tunnel?, shouldRefreshTunnelState: Bool) {
+    func tunnelManagerState(
+        _ state: TunnelManager.State,
+        didChangeTunnelProvider newTunnelObject: Tunnel?,
+        shouldRefreshTunnelState: Bool
+    )
+    {
         dispatchPrecondition(condition: .onQueue(stateQueue))
 
         // Register for tunnel connection status changes
@@ -691,7 +724,10 @@ final class TunnelManager: TunnelManagerStateDelegate {
             self.startTunnel()
         }
 
-        exclusivityController.addOperation(operation, categories: [OperationCategory.tunnelStateUpdate])
+        exclusivityController.addOperation(
+            operation,
+            categories: [OperationCategory.tunnelStateUpdate]
+        )
 
         // Cancel last VPN status mapping operation
         lastMapConnectionStatusOperation?.cancel()
