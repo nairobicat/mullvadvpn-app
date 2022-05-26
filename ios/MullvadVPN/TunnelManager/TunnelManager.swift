@@ -701,7 +701,7 @@ final class TunnelManager: TunnelManagerStateDelegate {
     private func _refreshTunnelStatus() {
         dispatchPrecondition(condition: .onQueue(stateQueue))
 
-        if let connectionStatus = self.state.tunnel?.status {
+        if let connectionStatus = state.tunnel?.status {
             updateTunnelStatus(connectionStatus)
         }
     }
