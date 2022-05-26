@@ -77,7 +77,7 @@ class LoadTunnelConfigurationOperation: ResultOperation<(), TunnelManager.Error>
             let onFinish = {
                 self.state.tunnelSettings = nil
                 self.state.setTunnel(nil, shouldRefreshTunnelState: true)
-                self.state.isLoadedConfiguration = false
+                self.state.isLoadedConfiguration = returnError == nil
 
                 self.finish(completion: returnError.map { .failure($0) } ?? .success(()))
             }
