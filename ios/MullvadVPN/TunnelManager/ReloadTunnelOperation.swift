@@ -39,7 +39,7 @@ class ReloadTunnelOperation: ResultOperation<(), TunnelManager.Error> {
             guard let self = self else { return }
 
             self.dispatchQueue.async {
-                self.finish(completion: completion.mapError { .reloadTunnel($0) })
+                self.finish(completion: completion.mapError { .ipcFailure($0) })
             }
         }
     }

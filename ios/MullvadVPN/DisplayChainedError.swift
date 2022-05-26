@@ -197,12 +197,12 @@ extension TunnelManager.Error: DisplayChainedError {
                 value: "Failed to satisfy relay constraints.",
                 comment: ""
             )
-        case .reloadTunnel(let error):
+        case .ipcFailure(let error):
             return String(
                 format: NSLocalizedString(
                     "RELOAD_TUNNEL_ERROR",
                     tableName: "TunnelManager",
-                    value: "Failed to reload tunnel: %@",
+                    value: "Failed to communicate with tunnel process: %@",
                     comment: ""
                 ),
                 error.localizedDescription

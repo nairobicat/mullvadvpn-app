@@ -362,7 +362,7 @@ class ConnectViewController: UIViewController, MKMapViewDelegate, RootContainmen
     }
 
     @objc func handleReconnect(_ sender: Any) {
-        TunnelManager.shared.reconnectTunnel(completionHandler: nil)
+        TunnelManager.shared.reconnectTunnel()
     }
 
     @objc func handleSelectLocation(_ sender: Any) {

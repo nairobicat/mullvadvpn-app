@@ -65,8 +65,8 @@ extension TunnelManager {
         /// Failure to rotate WireGuard key.
         case rotateKey(REST.Error)
 
-        /// Failure to reload tunnel.
-        case reloadTunnel(TunnelIPC.Error)
+        /// Failure to communicate with tunnel process.
+        case ipcFailure(TunnelIPC.Error)
 
         var errorDescription: String? {
             switch self {
@@ -106,8 +106,8 @@ extension TunnelManager {
                 return "Failed to create new account."
             case .rotateKey:
                 return "Failed to rotate WireGuard key."
-            case .reloadTunnel:
-                return "Failed to reload tunnel."
+            case .ipcFailure:
+                return "Failed to communicate with tunnel process."
             }
         }
     }
