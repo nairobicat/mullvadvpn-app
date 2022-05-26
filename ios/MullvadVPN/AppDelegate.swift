@@ -47,15 +47,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             )
         }
 
-        // Assign user notification center delegate
-        UNUserNotificationCenter.current().delegate = self
-
-        // Setup notifications
-        NotificationManager.shared.notificationProviders = [
-            AccountExpiryNotificationProvider(),
-            TunnelErrorNotificationProvider()
-        ]
-
         // Load tunnels
         TunnelManager.shared.loadConfiguration { error in
             dispatchPrecondition(condition: .onQueue(.main))
@@ -65,7 +56,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 fatalError(error.displayChain(message: "Failed to load tunnel configuration"))
             }
 
-            // Setup notifications.
+            // Assign user notification center delegate.
+            UNUserNotificationCenter.current().delegate = self
+
+            // Setup notifications
+            NotificationManager.shared.notificationProviders = [
+                AccountExpiryNotificationProvider(),
+                TunnelErrorNotificationProvider()
+            ]
             NotificationManager.shared.updateNotifications()
 
             // Start payments handling.
@@ -79,9 +77,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             return true
         } else {
             sceneDelegate = SceneDelegate()
-            sceneDelegate?.setupScene {
-                return UIWindow(frame: UIScreen.main.bounds)
-            }
+            sceneDelegate?.setupScene(windowFactory: ClassicWindowFactory())
+
             return true
         }
     }
@@ -185,6 +182,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             name: "Default Configuration",
             sessionRole: connectingSceneSession.role
         )
+        sceneConfiguration.delegateClass = SceneDelegate.self
+
+        return sceneConfiguration
     }
 
     @available(iOS 13.0, *)
@@ -195,28 +195,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when the user discards a scene session.
         // If any sessions were discarded while the application was not running, this will be called shortly after application:didFinishLaunchingWithOptions.
         // Use this method to release any resources that were specific to the discarded scenes, as they will not return.
-    }
-
-    // MARK: -
-
-    fileprivate func startUserActivity(_ userActivity: NSUserActivity) {
-        if #available(iOS 13.0, *) {
-            let sceneSession = UIApplication.shared.openSessions.first { sceneSession in
-                return sceneSession.configuration.delegateClass == SceneDelegate.self
-            }
-
-            UIApplication.shared.requestSceneSessionActivation(
-                sceneSession,
-                userActivity: userActivity,
-                options: nil) { error in
-                    self.logger?.error(
-                        chainedError: AnyChainedError(error),
-                        message: "Failed to activate scene session for activity: \(userActivity.activityType)"
-                    )
-                }
-        } else {
-            sceneDelegate?.continueUserActivity(userActivity)
-        }
     }
 
     // MARK: - Background tasks
@@ -394,13 +372,18 @@ extension AppDelegate: AppStorePaymentManagerDelegate {
 extension AppDelegate: UNUserNotificationCenterDelegate {
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-
         if response.notification.request.identifier == accountExpiryNotificationIdentifier,
            response.actionIdentifier == UNNotificationDefaultActionIdentifier
         {
-            let activity = NSUserActivity(activityType: UserActivity.presentUserAccount)
+            if #available(iOS 13.0, *) {
+                // FIXME: scene may not be connected yet.
+                let sceneDelegate = UIApplication.shared.connectedScenes
+                    .first?.delegate as? SceneDelegate
 
-            startUserActivity(activity)
+                sceneDelegate?.showUserAccount()
+            } else {
+                sceneDelegate?.showUserAccount()
+            }
         }
 
         completionHandler()

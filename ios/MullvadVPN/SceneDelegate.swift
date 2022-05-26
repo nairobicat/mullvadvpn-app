@@ -9,20 +9,12 @@
 import UIKit
 import Logging
 
-enum UserActivity {
-    static let presentUserAccount = "net.mullvad.MullvadVPN.PresentUserAccount"
-}
-
 class SceneDelegate: UIResponder {
     private let logger = Logger(label: "SceneDelegate")
 
     var window: UIWindow?
     private var privacyOverlayWindow: UIWindow?
-    private var sceneIsReady = false
-
-    private var applicationDelegate: AppDelegate? {
-        return UIApplication.shared.delegate as? AppDelegate
-    }
+    private var isSceneConfigured = false
 
     private let rootContainer = RootContainerViewController()
     private var splitViewController: CustomSplitViewController?
@@ -36,11 +28,11 @@ class SceneDelegate: UIResponder {
         addSceneEvents()
     }
 
-    func setupScene(windowFactory: () -> UIWindow) {
-        window = windowFactory()
+    func setupScene(windowFactory: WindowFactory) {
+        window = windowFactory.create()
         window?.rootViewController = LaunchViewController()
 
-        privacyOverlayWindow = windowFactory()
+        privacyOverlayWindow = windowFactory.create()
         privacyOverlayWindow?.rootViewController = LaunchViewController()
         privacyOverlayWindow?.windowLevel = .alert + 1
 
@@ -48,14 +40,19 @@ class SceneDelegate: UIResponder {
 
         TunnelManager.shared.addObserver(self)
         if TunnelManager.shared.isLoadedConfiguration {
-            sceneReady()
+            configureScene()
         }
     }
 
-    func sceneReady() {
-        guard !sceneIsReady else { return }
+    func showUserAccount() {
+        // FIXME: scene may not be configured yet!
+        rootContainer.showSettings(navigateTo: .account, animated: true)
+    }
 
-        sceneIsReady = true
+    private func configureScene() {
+        guard !isSceneConfigured else { return }
+
+        isSceneConfigured = true
 
         rootContainer.delegate = self
         window?.rootViewController = rootContainer
@@ -71,12 +68,6 @@ class SceneDelegate: UIResponder {
 
         RelayCache.Tracker.shared.addObserver(self)
         NotificationManager.shared.delegate = self
-    }
-
-    func continueUserActivity(_ userActivity: NSUserActivity) {
-        if userActivity.activityType == UserActivity.presentUserAccount {
-            rootContainer.showSettings(navigateTo: .account, animated: true)
-        }
     }
 
     private func setShowsPrivacyOverlay(_ showOverlay: Bool) {
@@ -147,7 +138,6 @@ class SceneDelegate: UIResponder {
 
 @available(iOS 13.0, *)
 extension SceneDelegate: UIWindowSceneDelegate {
-
     func scene(
         _ scene: UIScene,
         willConnectTo session: UISceneSession,
@@ -155,9 +145,7 @@ extension SceneDelegate: UIWindowSceneDelegate {
     ) {
         guard let windowScene = (scene as? UIWindowScene) else { return }
 
-        setupScene {
-            return UIWindow(windowScene: windowScene)
-        }
+        setupScene(windowFactory: SceneWindowFactory(windowScene: windowScene))
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {
@@ -178,10 +166,6 @@ extension SceneDelegate: UIWindowSceneDelegate {
 
     func sceneDidEnterBackground(_ scene: UIScene) {
         sceneDidEnterBackground()
-    }
-
-    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
-        continueUserActivity(userActivity)
     }
 }
 
@@ -708,6 +692,26 @@ extension SceneDelegate: UISplitViewControllerDelegate {
         return nil
     }
 
+}
+
+// MARK: - Window factory
+
+protocol WindowFactory {
+    func create() -> UIWindow
+}
+
+struct ClassicWindowFactory: WindowFactory {
+    func create() -> UIWindow {
+        return UIWindow(frame: UIScreen.main.bounds)
+    }
+}
+@available(iOS 13.0, *)
+struct SceneWindowFactory: WindowFactory {
+    let windowScene: UIWindowScene
+
+    func create() -> UIWindow {
+        return UIWindow(windowScene: windowScene)
+    }
 }
 
 // MARK: -
