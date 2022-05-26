@@ -200,7 +200,7 @@ extension TunnelManager.Error: DisplayChainedError {
         case .ipcFailure(let error):
             return String(
                 format: NSLocalizedString(
-                    "RELOAD_TUNNEL_ERROR",
+                    "TUNNEL_IPC_ERROR",
                     tableName: "TunnelManager",
                     value: "Failed to communicate with tunnel process: %@",
                     comment: ""
