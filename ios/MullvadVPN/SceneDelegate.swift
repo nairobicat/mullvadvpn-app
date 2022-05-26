@@ -93,22 +93,25 @@ class SceneDelegate: UIResponder {
         if #available(iOS 13, *) {
             // no-op
         } else {
-            let nc = NotificationCenter.default
+            let notificationCenter = NotificationCenter.default
 
-            nc.addObserver(self,
-                           selector: #selector(sceneDidBecomeActive),
-                           name: UIApplication.didBecomeActiveNotification,
-                           object: nil
+            notificationCenter.addObserver(
+                self,
+                selector: #selector(sceneDidBecomeActive),
+                name: UIApplication.didBecomeActiveNotification,
+                object: nil
             )
-            nc.addObserver(self,
-                           selector: #selector(sceneDidEnterBackground),
-                           name: UIApplication.didEnterBackgroundNotification,
-                           object: nil
+            notificationCenter.addObserver(
+                self,
+                selector: #selector(sceneDidEnterBackground),
+                name: UIApplication.didEnterBackgroundNotification,
+                object: nil
             )
-            nc.addObserver(self,
-                           selector: #selector(sceneWillResignActive),
-                           name: UIApplication.willResignActiveNotification,
-                           object: nil
+            notificationCenter.addObserver(
+                self,
+                selector: #selector(sceneWillResignActive),
+                name: UIApplication.willResignActiveNotification,
+                object: nil
             )
         }
     }
