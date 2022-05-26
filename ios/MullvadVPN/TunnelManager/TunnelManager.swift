@@ -372,7 +372,7 @@ final class TunnelManager: TunnelManagerStateDelegate {
         operationQueue.addOperation(operation)
     }
 
-    func reconnectTunnel(completionHandler: (() -> Void)?) {
+    func reconnectTunnel(completionHandler: ((OperationCompletion<(), TunnelManager.Error>) -> Void)? = nil) {
         let operation = ReloadTunnelOperation(queue: stateQueue, state: state) { [weak self] completion in
             guard let self = self else { return }
 
@@ -395,7 +395,7 @@ final class TunnelManager: TunnelManagerStateDelegate {
             }
 
             DispatchQueue.main.async {
-                completionHandler?()
+                completionHandler?(completion)
             }
         }
 
@@ -538,7 +538,7 @@ final class TunnelManager: TunnelManagerStateDelegate {
 
             switch completion {
             case .success:
-                self.reconnectTunnel {
+                self.reconnectTunnel { _ in
                     completionHandler(completion)
                 }
 
