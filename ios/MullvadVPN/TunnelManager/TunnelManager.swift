@@ -80,6 +80,10 @@ final class TunnelManager: TunnelManagerStateDelegate {
     private var isPolling = false
     private var lastConnectingDate: Date?
 
+    var isLoadedConfiguration: Bool {
+        return state.isLoadedConfiguration
+    }
+
     var accountNumber: String? {
         return state.tunnelSettings?.account.number
     }
@@ -107,7 +111,7 @@ final class TunnelManager: TunnelManagerStateDelegate {
     private init(accountsProxy: REST.AccountsProxy, devicesProxy: REST.DevicesProxy) {
         self.accountsProxy = accountsProxy
         self.devicesProxy = devicesProxy
-        self.state = TunnelManager.State(queue: stateQueue)
+        self.state = TunnelManager.State(delegateQueue: stateQueue)
         self.state.delegate = self
         self.operationQueue.name = "TunnelManager.operationQueue"
         self.operationQueue.underlyingQueue = stateQueue
@@ -233,7 +237,9 @@ final class TunnelManager: TunnelManagerStateDelegate {
         let loadTunnelOperation = LoadTunnelConfigurationOperation(
             dispatchQueue: stateQueue,
             state: state
-        ) { [weak self] completion in
+        )
+        loadTunnelOperation.completionQueue = stateQueue
+        loadTunnelOperation.completionHandler = { [weak self] completion in
             guard let self = self else { return }
 
             dispatchPrecondition(condition: .onQueue(self.stateQueue))
@@ -327,12 +333,12 @@ final class TunnelManager: TunnelManagerStateDelegate {
 
             dispatchPrecondition(condition: .onQueue(self.stateQueue))
 
-            guard let error = completion.error else { return }
-
-            // Pass tunnel failure to observers
-            DispatchQueue.main.async {
-                self.observerList.forEach { observer in
-                    observer.tunnelManager(self, didFailWithError: error)
+            if let error = completion.error {
+                // Pass tunnel failure to observers
+                DispatchQueue.main.async {
+                    self.observerList.forEach { observer in
+                        observer.tunnelManager(self, didFailWithError: error)
+                    }
                 }
             }
         }
@@ -584,6 +590,16 @@ final class TunnelManager: TunnelManagerStateDelegate {
     }
 
     // MARK: - TunnelManagerStateDelegate
+
+    func tunnelManagerState(_ state: State, didChangeLoadedConfiguration isLoadedConfiguration: Bool) {
+        DispatchQueue.main.async {
+            self.observerList.forEach { observer in
+                if isLoadedConfiguration {
+                    observer.tunnelManagerDidLoadConfiguration(self)
+                }
+            }
+        }
+    }
 
     func tunnelManagerState(_ state: TunnelManager.State, didChangeTunnelSettings newTunnelSettinggs: TunnelSettingsV2?) {
         DispatchQueue.main.async {

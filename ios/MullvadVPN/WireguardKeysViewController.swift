@@ -104,6 +104,10 @@ class WireguardKeysViewController: UIViewController, TunnelObserver {
 
     // MARK: - TunnelObserver
 
+    func tunnelManagerDidLoadConfiguration(_ manager: TunnelManager) {
+        // no-op
+    }
+
     func tunnelManager(_ manager: TunnelManager, didUpdateTunnelState tunnelState: TunnelState) {
         // no-op
     }

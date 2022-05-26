@@ -131,6 +131,10 @@ class ConnectViewController: UIViewController, MKMapViewDelegate, RootContainmen
 
     // MARK: - TunnelObserver
 
+    func tunnelManagerDidLoadConfiguration(_ manager: TunnelManager) {
+        // no-op
+    }
+
     func tunnelManager(_ manager: TunnelManager, didUpdateTunnelSettings tunnelSettings: TunnelSettingsV2?) {
         setNeedsHeaderBarStyleAppearanceUpdate()
     }

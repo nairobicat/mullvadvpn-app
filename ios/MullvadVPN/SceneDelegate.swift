@@ -9,12 +9,16 @@
 import UIKit
 import Logging
 
-class SceneDelegate: UIResponder {
+enum UserActivity {
+    static let presentUserAccount = "net.mullvad.MullvadVPN.PresentUserAccount"
+}
 
-    let logger = Logger(label: "SceneDelegate")
+class SceneDelegate: UIResponder {
+    private let logger = Logger(label: "SceneDelegate")
 
     var window: UIWindow?
-    var occlusionWindow: UIWindow?
+    private var privacyOverlayWindow: UIWindow?
+    private var sceneIsReady = false
 
     private var applicationDelegate: AppDelegate? {
         return UIApplication.shared.delegate as? AppDelegate
@@ -32,29 +36,26 @@ class SceneDelegate: UIResponder {
         addSceneEvents()
     }
 
-    func setShowsPrivacyOverlay(_ showOverlay: Bool) {
-        if showOverlay {
-            occlusionWindow?.isHidden = false
-            occlusionWindow?.makeKeyAndVisible()
-        } else {
-            occlusionWindow?.isHidden = true
-            window?.makeKeyAndVisible()
-        }
-    }
-
     func setupScene(windowFactory: () -> UIWindow) {
         window = windowFactory()
         window?.rootViewController = LaunchViewController()
 
-        occlusionWindow = windowFactory()
-        occlusionWindow?.rootViewController = LaunchViewController()
-        occlusionWindow?.windowLevel = .alert + 1
+        privacyOverlayWindow = windowFactory()
+        privacyOverlayWindow?.rootViewController = LaunchViewController()
+        privacyOverlayWindow?.windowLevel = .alert + 1
 
         window?.makeKeyAndVisible()
+
+        TunnelManager.shared.addObserver(self)
+        if TunnelManager.shared.isLoadedConfiguration {
+            sceneReady()
+        }
     }
 
-    func presentRootContainer() {
-        RelayCache.Tracker.shared.addObserver(self)
+    func sceneReady() {
+        guard !sceneIsReady else { return }
+
+        sceneIsReady = true
 
         rootContainer.delegate = self
         window?.rootViewController = rootContainer
@@ -62,17 +63,30 @@ class SceneDelegate: UIResponder {
         switch UIDevice.current.userInterfaceIdiom {
         case .pad:
             setupPadUI()
-
         case .phone:
             setupPhoneUI()
-
         default:
             fatalError()
         }
+
+        RelayCache.Tracker.shared.addObserver(self)
+        NotificationManager.shared.delegate = self
     }
 
-    func presentAccount() {
-        rootContainer.showSettings(navigateTo: .account, animated: true)
+    func continueUserActivity(_ userActivity: NSUserActivity) {
+        if userActivity.activityType == UserActivity.presentUserAccount {
+            rootContainer.showSettings(navigateTo: .account, animated: true)
+        }
+    }
+
+    private func setShowsPrivacyOverlay(_ showOverlay: Bool) {
+        if showOverlay {
+            privacyOverlayWindow?.isHidden = false
+            privacyOverlayWindow?.makeKeyAndVisible()
+        } else {
+            privacyOverlayWindow?.isHidden = true
+            window?.makeKeyAndVisible()
+        }
     }
 
     private func addSceneEvents() {
@@ -119,7 +133,9 @@ class SceneDelegate: UIResponder {
 
     @objc private func sceneDidEnterBackground() {
         if #available(iOS 13, *) {
-            applicationDelegate?.scheduleBackgroundTasks()
+            let appDelegate = UIApplication.shared.delegate as? AppDelegate
+
+            appDelegate?.scheduleBackgroundTasks()
         }
     }
 }
@@ -161,6 +177,9 @@ extension SceneDelegate: UIWindowSceneDelegate {
         sceneDidEnterBackground()
     }
 
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        continueUserActivity(userActivity)
+    }
 }
 
 // MARK: - RootContainerViewControllerDelegate
@@ -628,6 +647,26 @@ extension SceneDelegate: UIAdaptivePresentationControllerDelegate {
                 logger.warning("Cannot obtain the containerView for presentation controller when presenting with adaptive style \(actualStyle.rawValue) and missing transition coordinator.")
             }
         }
+    }
+}
+
+// MARK: - TunnelObserver
+
+extension SceneDelegate: TunnelObserver {
+    func tunnelManagerDidLoadConfiguration(_ manager: TunnelManager) {
+        sceneReady()
+    }
+
+    func tunnelManager(_ manager: TunnelManager, didUpdateTunnelState tunnelState: TunnelState) {
+        // no-op
+    }
+
+    func tunnelManager(_ manager: TunnelManager, didUpdateTunnelSettings tunnelSettings: TunnelSettingsV2?) {
+        // no-op
+    }
+
+    func tunnelManager(_ manager: TunnelManager, didFailWithError error: TunnelManager.Error) {
+        // no-op
     }
 }
 

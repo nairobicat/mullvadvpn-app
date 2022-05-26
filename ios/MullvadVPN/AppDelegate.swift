@@ -20,27 +20,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     #endif
 
     private var logger: Logger?
-    private let notificationManager = NotificationManager()
+
+    // An instance of scene delegate used on iOS 12 or earlier.
     private var sceneDelegate: SceneDelegate?
-
-    fileprivate func getSceneDelegate() -> SceneDelegate? {
-        if #available(iOS 13, *) {
-            for scene in UIApplication.shared.connectedScenes {
-                if let sceneDelegate = scene.delegate as? SceneDelegate {
-                    return sceneDelegate
-                }
-            }
-            return nil
-        } else {
-            if let sceneDelegate = sceneDelegate {
-                return sceneDelegate
-            } else {
-                sceneDelegate = SceneDelegate()
-
-                return sceneDelegate
-            }
-        }
-    }
 
     // MARK: - Application lifecycle
 
@@ -68,29 +50,38 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Assign user notification center delegate
         UNUserNotificationCenter.current().delegate = self
 
+        // Setup notifications
+        NotificationManager.shared.notificationProviders = [
+            AccountExpiryNotificationProvider(),
+            TunnelErrorNotificationProvider()
+        ]
+
         // Load tunnels
         TunnelManager.shared.loadConfiguration { error in
             dispatchPrecondition(condition: .onQueue(.main))
 
             if let error = error {
-                self.logger?.error(chainedError: error, message: "Failed to load tunnels")
-
                 // TODO: avoid throwing fatal error and show the problem report UI instead.
-                fatalError(error.displayChain(message: "Failed to load VPN tunnel configuration"))
+                fatalError(error.displayChain(message: "Failed to load tunnel configuration"))
             }
 
-            self.finishInitialization()
+            // Setup notifications.
+            NotificationManager.shared.updateNotifications()
+
+            // Start payments handling.
+            let paymentManager = AppStorePaymentManager.shared
+            paymentManager.delegate = self
+            paymentManager.addPaymentObserver(TunnelManager.shared)
+            paymentManager.startPaymentQueueMonitoring()
         }
 
         if #available(iOS 13, *) {
             return true
         } else {
-            let sceneDelegate = getSceneDelegate()
-
+            sceneDelegate = SceneDelegate()
             sceneDelegate?.setupScene {
                 return UIWindow(frame: UIScreen.main.bounds)
             }
-
             return true
         }
     }
@@ -148,7 +139,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             operationQueue.cancelAllOperations()
         }
 
-        let fetchOperations = [updateAddressCacheOperation, updateRelaysOperation, rotatePrivateKeyOperation]
+        let fetchOperations = [
+            updateAddressCacheOperation,
+            updateRelaysOperation,
+            rotatePrivateKeyOperation
+        ]
 
         let completionOperation = BlockOperation {
             let operationResults = [
@@ -204,25 +199,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     // MARK: -
 
-    private func finishInitialization() {
-        logger?.debug("Finished initialization. Present root container.")
+    fileprivate func startUserActivity(_ userActivity: NSUserActivity) {
+        if #available(iOS 13.0, *) {
+            let sceneSession = UIApplication.shared.openSessions.first { sceneSession in
+                return sceneSession.configuration.delegateClass == SceneDelegate.self
+            }
 
-        let sceneDelegate = getSceneDelegate()
-        sceneDelegate?.presentRootContainer()
-
-        // Setup notifications.
-        notificationManager.delegate = sceneDelegate
-        notificationManager.notificationProviders = [
-            AccountExpiryNotificationProvider(),
-            TunnelErrorNotificationProvider()
-        ]
-        notificationManager.updateNotifications()
-
-        // Start payments handling.
-        let paymentManager = AppStorePaymentManager.shared
-        paymentManager.delegate = self
-        paymentManager.addPaymentObserver(TunnelManager.shared)
-        paymentManager.startPaymentQueueMonitoring()
+            UIApplication.shared.requestSceneSessionActivation(
+                sceneSession,
+                userActivity: userActivity,
+                options: nil) { error in
+                    self.logger?.error(
+                        chainedError: AnyChainedError(error),
+                        message: "Failed to activate scene session for activity: \(userActivity.activityType)"
+                    )
+                }
+        } else {
+            sceneDelegate?.continueUserActivity(userActivity)
+        }
     }
 
     // MARK: - Background tasks
@@ -400,11 +394,13 @@ extension AppDelegate: AppStorePaymentManagerDelegate {
 extension AppDelegate: UNUserNotificationCenterDelegate {
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        let sceneDelegate = getSceneDelegate()
 
         if response.notification.request.identifier == accountExpiryNotificationIdentifier,
-           response.actionIdentifier == UNNotificationDefaultActionIdentifier {
-            sceneDelegate?.presentAccount()
+           response.actionIdentifier == UNNotificationDefaultActionIdentifier
+        {
+            let activity = NSUserActivity(activityType: UserActivity.presentUserAccount)
+
+            startUserActivity(activity)
         }
 
         completionHandler()
