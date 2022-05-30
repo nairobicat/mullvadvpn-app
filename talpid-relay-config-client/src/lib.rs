@@ -14,6 +14,7 @@ mod types {
 type RelayConfigService = types::post_quantum_secure_client::PostQuantumSecureClient<Channel>;
 
 const CONFIG_SERVICE_PORT: u16 = 1337;
+const STACK_SIZE: usize = 8 * 1024 * 1024;
 const ALGORITHM_NAME: &str = "Classic-McEliece-8192128f";
 
 #[derive(Debug)]
@@ -32,7 +33,7 @@ pub async fn push_pq_key(
 ) -> Result<(PrivateKey, PresharedKey), Error> {
     let oqs_key = PrivateKey::new_from_random();
 
-    let (pubkey, secret) = generate_key()?;
+    let (pubkey, secret) = generate_key().await?;
 
     let mut client = new_client(service_address).await?;
     let response = client
@@ -60,27 +61,40 @@ pub async fn push_pq_key(
     Ok((oqs_key, PresharedKey::from(psk)))
 }
 
-fn generate_key() -> Result<
+async fn generate_key() -> Result<
     (
         Box<[u8; CRYPTO_PUBLICKEYBYTES]>,
         Box<[u8; CRYPTO_SECRETKEYBYTES]>,
     ),
     Error,
 > {
-    let mut rng = AesState::new();
-    let mut pubkey: Box<[u8; CRYPTO_PUBLICKEYBYTES]> = vec![0u8; CRYPTO_PUBLICKEYBYTES]
-        .into_boxed_slice()
-        .try_into()
+    let (tx, rx) = tokio::sync::oneshot::channel();
+
+    let gen_key = move || {
+        let mut rng = AesState::new();
+        let mut pubkey: Box<[u8; CRYPTO_PUBLICKEYBYTES]> = vec![0u8; CRYPTO_PUBLICKEYBYTES]
+            .into_boxed_slice()
+            .try_into()
+            .unwrap();
+        let mut secret: Box<[u8; CRYPTO_SECRETKEYBYTES]> = vec![0u8; CRYPTO_SECRETKEYBYTES]
+            .into_boxed_slice()
+            .try_into()
+            .unwrap();
+        crypto_kem_keypair(&mut pubkey, &mut secret, &mut rng).map_err(|error| {
+            log::error!("KEM keypair generation failed: {error}");
+            Error::KeyGenerationFailed
+        })?;
+        Ok((pubkey, secret))
+    };
+
+    std::thread::Builder::new()
+        .stack_size(STACK_SIZE)
+        .spawn(move || {
+            tx.send(gen_key()).unwrap();
+        })
         .unwrap();
-    let mut secret: Box<[u8; CRYPTO_SECRETKEYBYTES]> = vec![0u8; CRYPTO_SECRETKEYBYTES]
-        .into_boxed_slice()
-        .try_into()
-        .unwrap();
-    crypto_kem_keypair(&mut pubkey, &mut secret, &mut rng).map_err(|error| {
-        log::error!("KEM keypair generation failed: {error}");
-        Error::KeyGenerationFailed
-    })?;
-    Ok((pubkey, secret))
+
+    rx.await.unwrap()
 }
 
 async fn new_client(addr: IpAddr) -> Result<RelayConfigService, Error> {
