@@ -1,6 +1,9 @@
 use std::net::IpAddr;
 
-use oqs::kem::{self, Algorithm, Kem, SecretKey};
+use classic_mceliece_rust::{
+    crypto_kem_dec, crypto_kem_keypair, AesState, CRYPTO_BYTES, CRYPTO_CIPHERTEXTBYTES,
+    CRYPTO_PUBLICKEYBYTES, CRYPTO_SECRETKEYBYTES,
+};
 use talpid_types::net::wireguard::{PresharedKey, PrivateKey, PublicKey};
 use tonic::transport::{Channel, Endpoint, Uri};
 
@@ -11,14 +14,14 @@ mod types {
 type RelayConfigService = types::post_quantum_secure_client::PostQuantumSecureClient<Channel>;
 
 const CONFIG_SERVICE_PORT: u16 = 1337;
-const ALGORITHM: Algorithm = Algorithm::ClassicMcEliece8192128f;
-const STACK_SIZE: usize = 8 * 1024 * 1024;
+const ALGORITHM_NAME: &str = "Classic-McEliece-8192128f";
 
 #[derive(Debug)]
 pub enum Error {
     GrpcTransportError(tonic::transport::Error),
     GrpcError(tonic::Status),
-    OqsError(oqs::Error),
+    KeyGenerationFailed,
+    DecapsulationError,
     InvalidCiphertext,
 }
 
@@ -29,7 +32,7 @@ pub async fn push_pq_key(
 ) -> Result<(PrivateKey, PresharedKey), Error> {
     let oqs_key = PrivateKey::new_from_random();
 
-    let (pubkey, secret) = generate_key().await?;
+    let (pubkey, secret) = generate_key()?;
 
     let mut client = new_client(service_address).await?;
     let response = client
@@ -37,49 +40,47 @@ pub async fn push_pq_key(
             wg_pubkey: current_pubkey.as_bytes().to_vec(),
             wg_psk_pubkey: oqs_key.public_key().as_bytes().to_vec(),
             oqs_pubkey: Some(types::OqsPubkey {
-                algorithm_name: algorithm_to_string(&ALGORITHM),
-                key_data: pubkey.into_vec(),
+                algorithm_name: ALGORITHM_NAME.to_string(),
+                key_data: pubkey.to_vec(),
             }),
         })
         .await
         .map_err(Error::GrpcError)?;
 
     let ciphertext = response.into_inner().ciphertext;
-    let kem = Kem::new(ALGORITHM).map_err(Error::OqsError)?;
-    let ciphertext = kem
-        .ciphertext_from_bytes(&ciphertext)
-        .ok_or(Error::InvalidCiphertext)?;
-    let psk = kem
-        .decapsulate(&secret, ciphertext)
-        .map(|key| PresharedKey::from(<[u8; 32]>::try_from(key.as_ref()).unwrap()))
-        .map_err(Error::OqsError)?;
-    Ok((oqs_key, psk))
+    let ct: [u8; CRYPTO_CIPHERTEXTBYTES] = ciphertext
+        .try_into()
+        .map_err(|_| Error::InvalidCiphertext)?;
+    let mut psk = [0u8; CRYPTO_BYTES];
+
+    crypto_kem_dec(&mut psk, &ct, &secret).map_err(|error| {
+        log::error!("KEM decapsulation failed: {error}");
+        Error::DecapsulationError
+    })?;
+    Ok((oqs_key, PresharedKey::from(psk)))
 }
 
-async fn generate_key() -> Result<(kem::PublicKey, SecretKey), Error> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-
-    let gen_key = move || {
-        let kem = Kem::new(ALGORITHM).map_err(Error::OqsError)?;
-        let (pubkey, secret) = kem.keypair().map_err(Error::OqsError)?;
-        Ok((pubkey, secret))
-    };
-
-    std::thread::Builder::new()
-        .stack_size(STACK_SIZE)
-        .spawn(move || {
-            tx.send(gen_key()).unwrap();
-        })
+fn generate_key() -> Result<
+    (
+        Box<[u8; CRYPTO_PUBLICKEYBYTES]>,
+        Box<[u8; CRYPTO_SECRETKEYBYTES]>,
+    ),
+    Error,
+> {
+    let mut rng = AesState::new();
+    let mut pubkey: Box<[u8; CRYPTO_PUBLICKEYBYTES]> = vec![0u8; CRYPTO_PUBLICKEYBYTES]
+        .into_boxed_slice()
+        .try_into()
         .unwrap();
-
-    rx.await.unwrap()
-}
-
-fn algorithm_to_string(algorithm: &Algorithm) -> String {
-    match algorithm {
-        Algorithm::ClassicMcEliece8192128f => "Classic-McEliece-8192128f".to_string(),
-        _ => unimplemented!(),
-    }
+    let mut secret: Box<[u8; CRYPTO_SECRETKEYBYTES]> = vec![0u8; CRYPTO_SECRETKEYBYTES]
+        .into_boxed_slice()
+        .try_into()
+        .unwrap();
+    crypto_kem_keypair(&mut pubkey, &mut secret, &mut rng).map_err(|error| {
+        log::error!("KEM keypair generation failed: {error}");
+        Error::KeyGenerationFailed
+    })?;
+    Ok((pubkey, secret))
 }
 
 async fn new_client(addr: IpAddr) -> Result<RelayConfigService, Error> {
