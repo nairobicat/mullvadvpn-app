@@ -47,31 +47,31 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             )
         }
 
-        // Load tunnels
+        // Setup payments handling.
+        AppStorePaymentManager.shared.delegate = self
+        AppStorePaymentManager.shared.addPaymentObserver(TunnelManager.shared)
+
+        // Setup notifications.
+        NotificationManager.shared.notificationProviders = [
+            AccountExpiryNotificationProvider(),
+            TunnelErrorNotificationProvider()
+        ]
+
+        // Initialize tunnel manager.
         TunnelManager.shared.loadConfiguration { error in
             dispatchPrecondition(condition: .onQueue(.main))
 
             if let error = error {
                 // TODO: avoid throwing fatal error and show the problem report UI instead.
-                fatalError(error.displayChain(message: "Failed to load tunnel configuration"))
+                fatalError(error.displayChain(message: "Failed to load tunnel configuration."))
             }
 
-            // Assign user notification center delegate.
-            UNUserNotificationCenter.current().delegate = self
-
-            // Setup notifications
-            NotificationManager.shared.notificationProviders = [
-                AccountExpiryNotificationProvider(),
-                TunnelErrorNotificationProvider()
-            ]
             NotificationManager.shared.updateNotifications()
-
-            // Start payments handling.
-            let paymentManager = AppStorePaymentManager.shared
-            paymentManager.delegate = self
-            paymentManager.addPaymentObserver(TunnelManager.shared)
-            paymentManager.startPaymentQueueMonitoring()
+            AppStorePaymentManager.shared.startPaymentQueueMonitoring()
         }
+
+        // Assign user notification center delegate.
+        UNUserNotificationCenter.current().delegate = self
 
         if #available(iOS 13, *) {
             return true
@@ -362,7 +362,7 @@ extension AppDelegate: AppStorePaymentManagerDelegate {
     {
         // Since we do not persist the relation between the payment and account token between the
         // app launches, we assume that all successful purchases belong to the active account token.
-        return TunnelManager.shared.tunnelSettings?.account.number
+        return TunnelManager.shared.accountNumber
     }
 
 }

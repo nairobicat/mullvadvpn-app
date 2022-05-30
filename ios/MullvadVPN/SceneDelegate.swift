@@ -641,7 +641,7 @@ extension SceneDelegate: UIAdaptivePresentationControllerDelegate {
 
 extension SceneDelegate: TunnelObserver {
     func tunnelManagerDidLoadConfiguration(_ manager: TunnelManager) {
-        sceneReady()
+        configureScene()
     }
 
     func tunnelManager(_ manager: TunnelManager, didUpdateTunnelState tunnelState: TunnelState) {
