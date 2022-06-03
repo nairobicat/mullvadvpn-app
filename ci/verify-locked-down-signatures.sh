@@ -38,9 +38,17 @@ if [[ "$import_gpg_keys" == "true" ]]; then
     done
 fi
 
+# Parse the locked down files from the github actions workflow file.
+# We need to define them there since github has no way to trigger on filepaths specified in a file.
+# We parse them from there in order to avoid duplicating the locked down files in multiple places.
+#
+# This regexp line is using a regexp to parse the github .yml file for the YAML list that follows the `paths` key.
+# It uses `tr` in order to turn the multi-lined file into a single-line that sed can parse correctly. This is done by replacing all new-lines with a `;`
+SEPARATOR=';'
+locked_down_files=$(cat $SCRIPT_DIR/../.github/workflows/verify-locked-down-signatures.yml | tr '\n' $SEPARATOR | sed "s/.*paths:$SEPARATOR\(\(\s*-\s[a-zA-Z\/\.-]*$SEPARATOR\)*\).*/\1/" | tr $SEPARATOR '\n' | awk '{print $2}')
+
 unsigned_commits_exist=0
-LOCKED_DOWN_FILES=$(cat $SCRIPT_DIR/locked_down_files.txt)
-for locked_file in $LOCKED_DOWN_FILES; do
+for locked_file in $locked_down_files; do
     locked_file_commit_hashes=$(git rev-list --oneline $whitelisted_commit..HEAD $SCRIPT_DIR/../$locked_file | awk '{print $1}')
     for commit in $locked_file_commit_hashes;
     do

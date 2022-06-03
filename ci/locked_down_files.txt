@@ -1,6 +1,0 @@
-Cargo.lock
-gui/package-lock.json
-ci/keys/
-ci/locked_down_files.txt
-ci/verify-locked-down-signatures.sh
-.github/workflows/verify-locked-down-signatures.yml

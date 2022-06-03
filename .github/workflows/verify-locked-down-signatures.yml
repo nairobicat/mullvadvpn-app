@@ -5,6 +5,8 @@ on:
             - .github/workflows/verify-locked-down-signatures.yml
             - Cargo.lock
             - gui/package-lock.json
+            - ci/keys/
+            - ci/verify-locked-down-signatures.sh
     workflow_dispatch:
 jobs:
     verify-signatures:
