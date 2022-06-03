@@ -33,7 +33,9 @@ done
 
 if [[ "$import_gpg_keys" == "true" ]]; then
     GNUPGHOME=$(mktemp -d)
-    gpg --import --armor $SCRIPT_DIR/trusted_keys.pub
+    for key in $SCRIPT_DIR/keys/*; do
+        gpg --import --armor $key
+    done
 fi
 
 unsigned_commits_exist=0
