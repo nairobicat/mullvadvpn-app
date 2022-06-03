@@ -40,8 +40,7 @@ fi
 
 unsigned_commits_exist=0
 LOCKED_DOWN_FILES=$(cat $SCRIPT_DIR/locked_down_files.txt)
-for locked_file in $LOCKED_DOWN_FILES;
-do
+for locked_file in $LOCKED_DOWN_FILES; do
     locked_file_commit_hashes=$(git rev-list --oneline $whitelisted_commit..HEAD $SCRIPT_DIR/../$locked_file | awk '{print $1}')
     for commit in $locked_file_commit_hashes;
     do
