@@ -20,4 +20,4 @@ jobs:
                     # Prepare enough depth for diffs with master
                     git fetch --depth="$(( commits + 1 ))" origin ${{ github.head_ref }} master
                 fi
-                ci/verify-locked-down-signatures.sh origin/master
+                ci/verify-locked-down-signatures.sh --import-gpg-keys --whitelist origin/master
