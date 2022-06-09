@@ -242,9 +242,13 @@ impl TunnelStateMachine {
         let power_mgmt_rx = crate::windows::window::PowerManagementListener::new();
 
         #[cfg(windows)]
-        let split_tunnel =
-            split_tunnel::SplitTunnel::new(runtime.clone(), command_tx.clone(), volume_update_rx)
-                .map_err(Error::InitSplitTunneling)?;
+        let split_tunnel = split_tunnel::SplitTunnel::new(
+            runtime.clone(),
+            command_tx.clone(),
+            volume_update_rx,
+            power_mgmt_rx.clone(),
+        )
+        .map_err(Error::InitSplitTunneling)?;
 
         let args = FirewallArguments {
             initial_state: if settings.block_when_disconnected || !settings.reset_firewall {
