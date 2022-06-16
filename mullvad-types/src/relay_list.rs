@@ -1,17 +1,15 @@
 use crate::{
-    endpoint::MullvadEndpoint,
     location::{CityCode, CountryCode, Location},
 };
 #[cfg(target_os = "android")]
 use jnix::IntoJava;
 use serde::{Deserialize, Serialize};
 use std::{
-    fmt,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
 };
 use talpid_types::net::{
     openvpn::{ProxySettings, ShadowsocksProxySettings},
-    wireguard, Endpoint, TransportProtocol,
+    wireguard, TransportProtocol,
 };
 
 /// Stores a list of relays for each country obtained from the API using
@@ -24,12 +22,13 @@ pub struct RelayList {
     pub etag: Option<String>,
     pub countries: Vec<RelayListCountry>,
     #[cfg_attr(target_os = "android", jnix(skip))]
-    pub openvpn: Vec<OpenVpnEndpointData>,
+    #[serde(rename = "openvpn")]
+    pub openvpn: OpenVpnEndpointData,
     #[cfg_attr(target_os = "android", jnix(skip))]
-    pub shadowsocks: Vec<ShadowsocksEndpointData>,
-    pub wireguard: Vec<WireguardEndpointData>,
+    pub bridges: BridgeEndpointData,
+    pub wireguard: WireguardEndpointData,
     #[cfg_attr(target_os = "android", jnix(skip))]
-    pub obfuscators: RelayObfuscators,
+    pub obfuscators: ObfuscatorEndpointData,
 }
 
 impl RelayList {
@@ -83,26 +82,35 @@ pub struct Relay {
     #[cfg_attr(target_os = "android", jnix(skip))]
     pub weight: u64,
     #[cfg_attr(target_os = "android", jnix(skip))]
-    pub relay_type: RelayType,
+    pub endpoint_data: RelayEndpointData,
     #[cfg_attr(target_os = "android", jnix(skip))]
     pub location: Option<Location>,
 }
 
-/// Specifies the type of a relay.
+/// Specifies the type of a relay or relay-specific endpoint data.
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum RelayType {
+#[serde(rename_all = "snake_case")]
+pub enum RelayEndpointData {
     Openvpn,
     Bridge,
-    Wireguard,
+    Wireguard(WireguardRelayEndpointData),
 }
 
-/// Data needed to connect to an OpenVPN endpoint at a [`Relay`].
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
+/// Data needed to connect to OpenVPN endpoints.
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
 pub struct OpenVpnEndpointData {
+    pub ports: Vec<OpenVpnEndpoint>,
+}
+
+/// Data needed to connect to OpenVPN endpoints.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
+pub struct OpenVpnEndpoint {
     pub port: u16,
     pub protocol: TransportProtocol,
 }
 
+// FIXME
+/*
 impl OpenVpnEndpointData {
     pub fn into_mullvad_endpoint(self, host: IpAddr) -> MullvadEndpoint {
         MullvadEndpoint::OpenVpn(Endpoint::new(host, self.port, self.protocol))
@@ -114,8 +122,9 @@ impl fmt::Display for OpenVpnEndpointData {
         write!(f, "{} port {}", self.protocol, self.port)
     }
 }
+*/
 
-/// Contains data about WireGuard endpoints, such as valid port ranges.
+/// Contains data about all WireGuard endpoints, such as valid port ranges.
 #[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize, Debug)]
 #[cfg_attr(target_os = "android", derive(IntoJava))]
 #[cfg_attr(target_os = "android", jnix(package = "net.mullvad.mullvadvpn.model"))]
@@ -126,10 +135,30 @@ pub struct WireguardEndpointData {
     /// Gateways to be used with the tunnel
     pub ipv4_gateway: Ipv4Addr,
     pub ipv6_gateway: Ipv6Addr,
-    /// The peer's public key
+}
+
+impl Default for WireguardEndpointData {
+    fn default() -> Self {
+        Self {
+            port_ranges: vec![],
+            ipv4_gateway: "0.0.0.0".parse().unwrap(),
+            ipv6_gateway: "::".parse().unwrap(),
+        }
+    }
+}
+
+/// Contains data about specific WireGuard endpoints, i.e. their public keys.
+#[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize, Debug)]
+#[cfg_attr(target_os = "android", derive(IntoJava))]
+#[cfg_attr(target_os = "android", jnix(package = "net.mullvad.mullvadvpn.model"))]
+#[cfg_attr(target_os = "android", jnix(skip_all))]
+pub struct WireguardRelayEndpointData {
+    /// Public key used by the relay peer
     pub public_key: wireguard::PublicKey,
 }
 
+// FIXME
+/*
 impl fmt::Display for WireguardEndpointData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
@@ -145,6 +174,12 @@ impl fmt::Display for WireguardEndpointData {
             self.public_key,
         )
     }
+}
+*/
+
+#[derive(Debug, Default, Clone, Deserialize, Serialize)]
+pub struct BridgeEndpointData {
+    pub shadowsocks: Vec<ShadowsocksEndpointData>,
 }
 
 /// Data needed to connect to Shadowsocks endpoints.
@@ -168,18 +203,8 @@ impl ShadowsocksEndpointData {
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 #[serde(default)]
-pub struct RelayObfuscators {
+pub struct ObfuscatorEndpointData {
     pub udp2tcp: Vec<Udp2TcpEndpointData>,
-}
-
-impl RelayObfuscators {
-    pub fn is_empty(&self) -> bool {
-        self.udp2tcp.is_empty()
-    }
-
-    pub fn clear(&mut self) {
-        self.udp2tcp.clear();
-    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]

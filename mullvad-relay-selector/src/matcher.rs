@@ -4,7 +4,7 @@ use mullvad_types::{
         Constraint, LocationConstraint, Match, OpenVpnConstraints, Ownership, Providers,
         RelayConstraints, WireguardConstraints,
     },
-    relay_list::{Relay, RelayTunnels, WireguardEndpointData},
+    relay_list::{Relay, RelayTunnels, OpenvpnEndpointData, WireguardEndpointData},
 };
 use rand::{seq::SliceRandom, Rng};
 use std::net::{IpAddr, SocketAddr};
@@ -112,6 +112,21 @@ impl TunnelMatcher for OpenVpnMatcher {
 }
 
 pub type OpenVpnMatcher = OpenVpnConstraints;
+
+impl Match<OpenVpnEndpointData> for OpenVpnConstraints {
+    fn matches(&self, endpoint: &OpenVpnEndpointData) -> bool {
+        match self.port {
+            Constraint::Any => true,
+            Constraint::Only(transport_port) => endpoint
+                .ports
+                .iter()
+                .any(|(port, transport)| {
+                    transport_port.protocol == transport &&
+                        (tranport_port.port >= port.0 && tranport_port.port <= port.1)
+                }),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct AnyTunnelMatcher {
