@@ -16,21 +16,25 @@ use talpid_types::net::{
 
 /// Stores a list of relays for each country obtained from the API using
 /// `mullvad_api::RelayListProxy`. This can also be passed to frontends.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Default, Debug, Clone, Deserialize, Serialize)]
 #[cfg_attr(target_os = "android", derive(IntoJava))]
 #[cfg_attr(target_os = "android", jnix(package = "net.mullvad.mullvadvpn.model"))]
 pub struct RelayList {
     #[cfg_attr(target_os = "android", jnix(skip))]
     pub etag: Option<String>,
     pub countries: Vec<RelayListCountry>,
+    #[cfg_attr(target_os = "android", jnix(skip))]
+    pub openvpn: Vec<OpenVpnEndpointData>,
+    #[cfg_attr(target_os = "android", jnix(skip))]
+    pub shadowsocks: Vec<ShadowsocksEndpointData>,
+    pub wireguard: Vec<WireguardEndpointData>,
+    #[cfg_attr(target_os = "android", jnix(skip))]
+    pub obfuscators: RelayObfuscators,
 }
 
 impl RelayList {
     pub fn empty() -> Self {
-        Self {
-            etag: None,
-            countries: Vec::new(),
-        }
+        Self::default()
     }
 }
 
@@ -78,38 +82,18 @@ pub struct Relay {
     pub provider: String,
     #[cfg_attr(target_os = "android", jnix(skip))]
     pub weight: u64,
-    #[serde(skip_serializing_if = "RelayTunnels::is_empty", default)]
-    pub tunnels: RelayTunnels,
-    #[serde(skip_serializing_if = "RelayBridges::is_empty", default)]
     #[cfg_attr(target_os = "android", jnix(skip))]
-    pub bridges: RelayBridges,
-    #[serde(skip_serializing_if = "RelayObfuscators::is_empty", default)]
-    #[cfg_attr(target_os = "android", jnix(skip))]
-    pub obfuscators: RelayObfuscators,
+    pub relay_type: RelayType,
     #[cfg_attr(target_os = "android", jnix(skip))]
     pub location: Option<Location>,
 }
 
-/// Provides protocol-specific information about a [`Relay`].
-#[derive(Debug, Default, Clone, Deserialize, Serialize)]
-#[serde(default)]
-#[cfg_attr(target_os = "android", derive(IntoJava))]
-#[cfg_attr(target_os = "android", jnix(package = "net.mullvad.mullvadvpn.model"))]
-pub struct RelayTunnels {
-    #[cfg_attr(target_os = "android", jnix(skip))]
-    pub openvpn: Vec<OpenVpnEndpointData>,
-    pub wireguard: Vec<WireguardEndpointData>,
-}
-
-impl RelayTunnels {
-    pub fn is_empty(&self) -> bool {
-        self.openvpn.is_empty() && self.wireguard.is_empty()
-    }
-
-    pub fn clear(&mut self) {
-        self.openvpn.clear();
-        self.wireguard.clear();
-    }
+/// Specifies the type of a relay.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum RelayType {
+    Openvpn,
+    Bridge,
+    Wireguard,
 }
 
 /// Data needed to connect to an OpenVPN endpoint at a [`Relay`].
@@ -131,7 +115,7 @@ impl fmt::Display for OpenVpnEndpointData {
     }
 }
 
-/// Data needed to connect to a WireGuard endpoint at a [`Relay`].
+/// Contains data about WireGuard endpoints, such as valid port ranges.
 #[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize, Debug)]
 #[cfg_attr(target_os = "android", derive(IntoJava))]
 #[cfg_attr(target_os = "android", jnix(package = "net.mullvad.mullvadvpn.model"))]
@@ -163,24 +147,7 @@ impl fmt::Display for WireguardEndpointData {
     }
 }
 
-/// Used by `mullvad_api::RelayListProxy` to store bridge servers for a [`Relay`].
-#[derive(Debug, Default, Clone, Deserialize, Serialize)]
-#[serde(default)]
-pub struct RelayBridges {
-    pub shadowsocks: Vec<ShadowsocksEndpointData>,
-}
-
-impl RelayBridges {
-    pub fn is_empty(&self) -> bool {
-        self.shadowsocks.is_empty()
-    }
-
-    pub fn clear(&mut self) {
-        self.shadowsocks.clear();
-    }
-}
-
-/// Data needed to connect to a Shadowsocks endpoint at a [`Relay`].
+/// Data needed to connect to Shadowsocks endpoints.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
 pub struct ShadowsocksEndpointData {
     pub port: u16,
