@@ -4,7 +4,7 @@ use mullvad_types::{
         Constraint, LocationConstraint, Match, OpenVpnConstraints, Ownership, Providers,
         RelayConstraints, WireguardConstraints,
     },
-    relay_list::{Relay, OpenVpnEndpointData, WireguardEndpointData},
+    relay_list::{Relay, RelayEndpointData, OpenVpnEndpointData, WireguardEndpointData},
 };
 use rand::{seq::SliceRandom, Rng};
 use std::net::{IpAddr, SocketAddr};
@@ -26,7 +26,7 @@ impl From<RelayConstraints> for RelayMatcher<AnyTunnelMatcher> {
             ownership: constraints.ownership,
             tunnel: AnyTunnelMatcher {
                 wireguard: constraints.wireguard_constraints.into(),
-                openvpn: constraints.openvpn_constraints,
+                openvpn: constraints.openvpn_constraints.into(),
                 tunnel_type: constraints.tunnel_protocol,
             },
         }
@@ -83,26 +83,15 @@ pub trait TunnelMatcher: Clone {
 
 impl TunnelMatcher for OpenVpnMatcher {
     fn filter_matching_endpoints(&self, relay: &Relay) -> Option<Relay> {
-        let tunnels = relay
-            .tunnels
-            .openvpn
-            .iter()
-            .filter(|endpoint| self.matches(endpoint))
-            .cloned()
-            .collect::<Vec<_>>();
-        if tunnels.is_empty() {
+        // FIXME: match against shared endpoint data
+        if !matches!(relay.endpoint_data, RelayEndpointData::Openvpn) {
             return None;
         }
-        // FIXME:
-        let mut relay = relay.clone();
-        relay.tunnels = RelayTunnels {
-            openvpn: tunnels,
-            wireguard: vec![],
-        };
-        Some(relay)
+        Some(relay.clone())
     }
 
     fn mullvad_endpoint(&self, relay: &Relay) -> Option<MullvadEndpoint> {
+        // FIXME: use shared endpoint data & pubkey
         relay
             .tunnels
             .openvpn
@@ -194,6 +183,8 @@ pub struct WireguardMatcher {
     pub peer: Option<Relay>,
     pub port: Constraint<u16>,
     pub ip_version: Constraint<IpVersion>,
+
+    // TODO: Add shared endpoint data here?
 }
 
 impl WireguardMatcher {
@@ -205,7 +196,7 @@ impl WireguardMatcher {
         let host = self.get_address_for_wireguard_relay(relay)?;
         let port = self.get_port_for_wireguard_relay(&data)?;
         let peer_config = wireguard::PeerConfig {
-            public_key: data.public_key,
+            public_key: relay.endpoint_data.unwrap_wireguard(),
             endpoint: SocketAddr::new(host, port),
             allowed_ips: all_of_the_internet(),
             psk: None,
@@ -273,18 +264,6 @@ impl From<WireguardConstraints> for WireguardMatcher {
     }
 }
 
-impl Match<WireguardEndpointData> for WireguardMatcher {
-    fn matches(&self, endpoint: &WireguardEndpointData) -> bool {
-        match self.port {
-            Constraint::Any => true,
-            Constraint::Only(port) => endpoint
-                .port_ranges
-                .iter()
-                .any(|range| (port >= range.0 && port <= range.1)),
-        }
-    }
-}
-
 impl TunnelMatcher for WireguardMatcher {
     fn filter_matching_endpoints(&self, relay: &Relay) -> Option<Relay> {
         if self
@@ -296,29 +275,16 @@ impl TunnelMatcher for WireguardMatcher {
             return None;
         }
 
-        let tunnels = relay
-            .tunnels
-            .wireguard
-            .iter()
-            .filter(|endpoint| self.matches(*endpoint))
-            .cloned()
-            .collect::<Vec<_>>();
-        if tunnels.is_empty() {
+        // FIXME: match constraints against shared endpoint data
+
+        if !matches!(relay.endpoint_data, RelayEndpointData::Wireguard(..)) {
             return None;
         }
-        let mut relay = relay.clone();
-        relay.tunnels = RelayTunnels {
-            wireguard: tunnels,
-            openvpn: vec![],
-        };
-        Some(relay)
+        Some(relay.clone())
     }
 
     fn mullvad_endpoint(&self, relay: &Relay) -> Option<MullvadEndpoint> {
-        relay
-            .tunnels
-            .wireguard
-            .choose(&mut rand::thread_rng())
-            .and_then(|wg_tunnel| self.wg_data_to_endpoint(relay, (*wg_tunnel).clone()))
+        // FIXME: use shared endpoint data & pubkey
+        self.wg_data_to_endpoint(relay, wg_tunnel)
     }
 }

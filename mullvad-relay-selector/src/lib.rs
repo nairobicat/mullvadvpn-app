@@ -308,7 +308,9 @@ impl RelaySelector {
             return None;
         }
 
-        let matcher = RelayMatcher::from(relay_constraints.clone());
+        let matcher = RelayMatcher::from(
+            relay_constraints.clone()
+        );
         let mut matching_locations: Vec<Location> = self
             .parsed_relays
             .lock()
@@ -340,7 +342,6 @@ impl RelaySelector {
         bridge_state: BridgeState,
         retry_attempt: u32,
     ) -> Result<NormalSelectedRelay, Error> {
-        self.parsed_relays.lock().locations
         let mut relay_matcher = RelayMatcher {
             location: location.clone(),
             providers: providers.clone(),
