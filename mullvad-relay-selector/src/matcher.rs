@@ -93,6 +93,7 @@ impl TunnelMatcher for OpenVpnMatcher {
         if tunnels.is_empty() {
             return None;
         }
+        // FIXME:
         let mut relay = relay.clone();
         relay.tunnels = RelayTunnels {
             openvpn: tunnels,
@@ -111,6 +112,7 @@ impl TunnelMatcher for OpenVpnMatcher {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct OpenVpnMatcher {
     constraints: OpenVpnConstraints,
 }

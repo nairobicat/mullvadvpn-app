@@ -340,6 +340,7 @@ impl RelaySelector {
         bridge_state: BridgeState,
         retry_attempt: u32,
     ) -> Result<NormalSelectedRelay, Error> {
+        self.parsed_relays.lock().locations
         let mut relay_matcher = RelayMatcher {
             location: location.clone(),
             providers: providers.clone(),
@@ -1230,6 +1231,7 @@ mod test {
                                     owned: true,
                                     provider: "31173".to_string(),
                                     weight: 1,
+                                    // TODO: add endpoint data here
                                     tunnels: RelayTunnels {
                                         openvpn: vec![],
                                         wireguard: vec![
@@ -1258,6 +1260,7 @@ mod test {
                                     owned: false,
                                     provider: "31173".to_string(),
                                     weight: 1,
+                                    // TODO: add endpoint data here
                                     tunnels: RelayTunnels {
                                         openvpn: vec![],
                                         wireguard: vec![
@@ -1286,6 +1289,7 @@ mod test {
                                     owned: true,
                                     provider: "31173".to_string(),
                                     weight: 1,
+                                    // TODO: add endpoint data here
                                     tunnels: RelayTunnels {
                                         openvpn: vec![
                                             OpenVpnEndpointData {
@@ -1320,6 +1324,7 @@ mod test {
                                     owned: true,
                                     provider: "31173".to_string(),
                                     weight: 1,
+                                    // TODO: add endpoint data here
                                     tunnels: RelayTunnels {
                                         openvpn: vec![],
                                         wireguard: vec![
@@ -1348,6 +1353,7 @@ mod test {
                                     owned: true,
                                     provider: "31173".to_string(),
                                     weight: 1,
+                                    // TODO: add endpoint data here
                                     tunnels: RelayTunnels {
                                         openvpn: vec![OpenVpnEndpointData{
                                             port: 0,
