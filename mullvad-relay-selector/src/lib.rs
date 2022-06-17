@@ -95,7 +95,16 @@ impl ParsedRelays {
         }
     }
 
-    pub fn from_relay_list(relay_list: RelayList, last_updated: SystemTime) -> Self {
+    pub fn from_relay_list(mut relay_list: RelayList, last_updated: SystemTime) -> Self {
+        // TODO: check validity of shared endpoint data?
+
+        // Append obfuscator endpoints ourselves, since the API does not provide them.
+        if relay_list.obfuscators.udp2tcp.is_empty() {
+            relay_list.obfuscators.udp2tcp.extend(UDP2TCP_PORTS.into_iter().map(|port| {
+                Udp2TcpEndpointData { port }
+            }));
+        }
+
         let mut relays = Vec::new();
         for country in &relay_list.countries {
             let country_name = country.name.clone();
@@ -115,26 +124,6 @@ impl ParsedRelays {
                         latitude,
                         longitude,
                     });
-
-                    Self::filter_invalid_relays(&mut relay_with_location);
-
-                    // TODO: The WireGuard data is incorrectly modelled.
-                    // Using a vector here suggests that a relay may use multiple key pairs at a
-                    // time. This is incorrect and will never be the case.
-                    //
-                    // Currently, the `wireguard` vector will have 0 or 1 entries.
-                    // This should be changed into e.g. using an Option<_> instead.
-                    //
-
-                    if !relay.tunnels.wireguard.is_empty() {
-                        for port in UDP2TCP_PORTS {
-                            relay_with_location
-                                .obfuscators
-                                .udp2tcp
-                                .push(Udp2TcpEndpointData { port });
-                        }
-                    }
-
                     relays.push(relay_with_location);
                 }
             }
@@ -144,36 +133,6 @@ impl ParsedRelays {
             last_updated,
             locations: relay_list,
             relays,
-        }
-    }
-
-    fn filter_invalid_relays(relay: &mut Relay) {
-        let total_openvpn_endpoints = relay.tunnels.openvpn.len();
-        let openvpn_endpoints = &mut relay.tunnels.openvpn;
-        openvpn_endpoints.retain(|data| data.port != 0);
-
-        if openvpn_endpoints.len() < total_openvpn_endpoints {
-            log::error!(
-                "Relay {} contained {} invalid OpenVPN endpoints out of {} endpoints",
-                relay.hostname,
-                total_openvpn_endpoints - openvpn_endpoints.len(),
-                total_openvpn_endpoints
-            );
-        }
-
-        let total_wireguard_endpoints = relay.tunnels.wireguard.len();
-        let wireguard_endpoints = &mut relay.tunnels.wireguard;
-        wireguard_endpoints.retain(|data| {
-            !data.port_ranges.is_empty() && data.port_ranges.iter().all(|(start, end)| start <= end)
-        });
-
-        if wireguard_endpoints.len() < total_wireguard_endpoints {
-            log::error!(
-                "Relay {} contained {} invalid WireGuard endpoints out of {} endpoints",
-                relay.hostname,
-                total_wireguard_endpoints - wireguard_endpoints.len(),
-                total_wireguard_endpoints
-            );
         }
     }
 
