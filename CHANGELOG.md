@@ -33,6 +33,10 @@ Line wrap the file at 100 chars.                                              Th
 #### Windows
 - Add CLI command for listing excluded processes.
 
+#### Android
+- Add device management to the Android app. This simplifies knowing which device is which and adds
+  the option to log out other devices when there are already 5 connected when logging in.
+
 ### Changed
 - Display consistent colors regardless of monitor color profile.
 
