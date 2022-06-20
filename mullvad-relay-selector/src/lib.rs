@@ -98,7 +98,7 @@ impl ParsedRelays {
     pub fn from_relay_list(mut relay_list: RelayList, last_updated: SystemTime) -> Self {
         // TODO: check validity of shared endpoint data?
 
-        // Append obfuscator endpoints ourselves, since the API does not provide them.
+        // Append data for obfuscation protocols ourselves, since the API does not provide it.
         if relay_list.wireguard.udp2tcp_ports.is_empty() {
             relay_list.wireguard.udp2tcp_ports.extend(UDP2TCP_PORTS.into_iter());
         }
