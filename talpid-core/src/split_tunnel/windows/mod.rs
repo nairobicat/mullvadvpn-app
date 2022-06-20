@@ -11,10 +11,7 @@ use crate::{
         self, get_best_default_route, interface_luid_to_ip, WinNetAddrFamily, WinNetCallbackHandle,
     },
 };
-use futures::{
-    channel::{mpsc, oneshot},
-    StreamExt,
-};
+use futures::channel::{mpsc, oneshot};
 use std::{
     collections::HashMap,
     convert::TryFrom,
@@ -177,9 +174,11 @@ impl SplitTunnel {
         volume_update_rx: mpsc::UnboundedReceiver<()>,
         power_mgmt_rx: PowerManagementListener,
     ) -> Result<Self, Error> {
-        let (request_tx, handle) = Self::spawn_request_thread(volume_update_rx)?;
-
         let excluded_processes = Arc::new(RwLock::new(HashMap::new()));
+
+        let (request_tx, handle) =
+            Self::spawn_request_thread(volume_update_rx, excluded_processes.clone())?;
+
         let (event_thread, quit_event) =
             Self::spawn_event_listener(handle, excluded_processes.clone())?;
 
@@ -401,6 +400,7 @@ impl SplitTunnel {
 
     fn spawn_request_thread(
         volume_update_rx: mpsc::UnboundedReceiver<()>,
+        excluded_processes: Arc<RwLock<HashMap<usize, ExcludedProcess>>>,
     ) -> Result<(RequestTx, Arc<driver::DeviceHandle>), Error> {
         let (tx, rx): (RequestTx, _) = sync_mpsc::channel();
         let (init_tx, init_rx) = sync_mpsc::channel();
@@ -494,6 +494,10 @@ impl SplitTunnel {
                                 return Err(Error::CannotResetEngaged);
                             }
 
+                            {
+                                excluded_processes.write().unwrap().clear();
+                            }
+
                             handle.reinitialize().map_err(Error::InitializationError)?;
                             handle
                                 .register_ips(
@@ -503,6 +507,7 @@ impl SplitTunnel {
                                     previous_addresses.internet_ipv6,
                                 )
                                 .map_err(Error::RegisterIps)?;
+
                             if monitored_paths_guard.len() > 0 {
                                 handle
                                     .set_config(&*monitored_paths_guard)
