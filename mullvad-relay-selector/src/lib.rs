@@ -99,10 +99,8 @@ impl ParsedRelays {
         // TODO: check validity of shared endpoint data?
 
         // Append obfuscator endpoints ourselves, since the API does not provide them.
-        if relay_list.obfuscators.udp2tcp.is_empty() {
-            relay_list.obfuscators.udp2tcp.extend(UDP2TCP_PORTS.into_iter().map(|port| {
-                Udp2TcpEndpointData { port }
-            }));
+        if relay_list.wireguard.udp2tcp_ports.is_empty() {
+            relay_list.wireguard.udp2tcp_ports.extend(UDP2TCP_PORTS.into_iter());
         }
 
         let mut relays = Vec::new();

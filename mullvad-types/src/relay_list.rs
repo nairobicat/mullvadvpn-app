@@ -27,8 +27,6 @@ pub struct RelayList {
     #[cfg_attr(target_os = "android", jnix(skip))]
     pub bridges: BridgeEndpointData,
     pub wireguard: WireguardEndpointData,
-    #[cfg_attr(target_os = "android", jnix(skip))]
-    pub obfuscators: ObfuscatorEndpointData,
 }
 
 impl RelayList {
@@ -144,6 +142,7 @@ pub struct WireguardEndpointData {
     /// Gateways to be used with the tunnel
     pub ipv4_gateway: Ipv4Addr,
     pub ipv6_gateway: Ipv6Addr,
+    pub udp2tcp_ports: Vec<u16>,
 }
 
 impl Default for WireguardEndpointData {
@@ -152,6 +151,7 @@ impl Default for WireguardEndpointData {
             port_ranges: vec![],
             ipv4_gateway: "0.0.0.0".parse().unwrap(),
             ipv6_gateway: "::".parse().unwrap(),
+            udp2tcp_ports: vec![],
         }
     }
 }
@@ -208,15 +208,4 @@ impl ShadowsocksEndpointData {
             cipher: self.cipher.clone(),
         })
     }
-}
-
-#[derive(Debug, Default, Clone, Deserialize, Serialize)]
-#[serde(default)]
-pub struct ObfuscatorEndpointData {
-    pub udp2tcp: Vec<Udp2TcpEndpointData>,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
-pub struct Udp2TcpEndpointData {
-    pub port: u16,
 }

@@ -124,8 +124,6 @@ impl ServerRelayList {
             openvpn,
             wireguard,
             bridges,
-            // FIXME
-            obfuscators: Default::default(),
         }
     }
 
@@ -331,6 +329,7 @@ impl From<&Wireguard> for relay_list::WireguardEndpointData {
             port_ranges: wg.port_ranges.clone(),
             ipv4_gateway: wg.ipv4_gateway.clone(),
             ipv6_gateway: wg.ipv6_gateway.clone(),
+            udp2tcp_ports: vec![],
         }
     }
 }
