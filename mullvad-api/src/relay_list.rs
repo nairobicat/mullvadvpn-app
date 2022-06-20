@@ -108,7 +108,7 @@ impl ServerRelayList {
 
         let openvpn = Self::add_openvpn_relays(&mut countries, openvpn);
         let wireguard = Self::add_wireguard_relays(&mut countries, wireguard);
-        let bridges = Self::add_bridge_relays(&mut countries, bridge);
+        let bridge = Self::add_bridge_relays(&mut countries, bridge);
 
         relay_list::RelayList {
             etag: etag.map(|mut tag| {
@@ -123,7 +123,7 @@ impl ServerRelayList {
                 .collect(),
             openvpn,
             wireguard,
-            bridges,
+            bridge,
         }
     }
 
