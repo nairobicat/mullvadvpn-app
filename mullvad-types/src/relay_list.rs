@@ -95,9 +95,9 @@ pub enum RelayEndpointData {
 }
 
 impl RelayEndpointData {
-    pub fn unwrap_wireguard(self) -> WireguardRelayEndpointData {
-        if let RelayEndpointData::Wireguard(wg) = self {
-            return wg;
+    pub fn unwrap_wireguard_ref(&self) -> &WireguardRelayEndpointData {
+        if let RelayEndpointData::Wireguard(wg) = &self {
+            return &wg;
         }
         panic!("not a wireguard endpoint");
     }
