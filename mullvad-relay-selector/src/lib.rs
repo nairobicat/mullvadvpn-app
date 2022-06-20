@@ -13,7 +13,7 @@ use mullvad_types::{
         RelaySettings, SelectedObfuscation, Set, TransportPort, Udp2TcpObfuscationSettings,
         WireguardConstraints,
     },
-    relay_list::{Relay, RelayList, Udp2TcpEndpointData},
+    relay_list::{Relay, RelayList},
     CustomTunnelEndpoint,
 };
 use parking_lot::{Mutex, MutexGuard};

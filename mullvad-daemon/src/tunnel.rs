@@ -200,6 +200,7 @@ impl InnerParametersGenerator {
                     ],
                 };
 
+                // TODO: 
                 let (obfuscator_relay, obfuscator_config) = match obfuscator {
                     Some(obfuscator) => (Some(obfuscator.relay), Some(obfuscator.config)),
                     None => (None, None),
