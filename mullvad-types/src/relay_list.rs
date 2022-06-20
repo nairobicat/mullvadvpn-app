@@ -25,7 +25,7 @@ pub struct RelayList {
     #[serde(rename = "openvpn")]
     pub openvpn: OpenVpnEndpointData,
     #[cfg_attr(target_os = "android", jnix(skip))]
-    pub bridges: BridgeEndpointData,
+    pub bridge: BridgeEndpointData,
     pub wireguard: WireguardEndpointData,
 }
 
