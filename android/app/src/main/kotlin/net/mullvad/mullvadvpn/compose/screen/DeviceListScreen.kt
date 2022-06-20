@@ -114,13 +114,15 @@ fun DeviceListScreen(
             )
         }
 
-        Box(modifier = Modifier
-            .constrainAs(list) {
-                top.linkTo(message.bottom, margin = 20.dp)
-                bottom.linkTo(actionButtons.top, margin = 5.dp)
-                height = Dimension.fillToConstraints
-                width = Dimension.matchParent
-            }) {
+        Box(
+            modifier = Modifier
+                .constrainAs(list) {
+                    top.linkTo(message.bottom, margin = 20.dp)
+                    bottom.linkTo(actionButtons.top, margin = 5.dp)
+                    height = Dimension.fillToConstraints
+                    width = Dimension.matchParent
+                }
+        ) {
             if (state.isLoading) {
                 CircularProgressIndicator(
                     color = Color.White,
