@@ -156,7 +156,7 @@ fun DeviceListScreen(
                 isEnabled = state.hasTooManyDevices.not() && state.isLoading.not(),
                 colors = ButtonDefaults.buttonColors(
                     backgroundColor = colorResource(id = R.color.green),
-                    disabledBackgroundColor = colorResource(id = R.color.green80),
+                    disabledBackgroundColor = colorResource(id = R.color.green40),
                     disabledContentColor = colorResource(id = R.color.white80),
                     contentColor = Color.White
                 )
