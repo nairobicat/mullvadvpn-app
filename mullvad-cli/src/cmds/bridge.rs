@@ -438,9 +438,7 @@ impl Bridge {
                 .into_iter()
                 .filter_map(|mut city| {
                     city.relays.retain(|relay| {
-                        relay.active
-                            && relay.bridges.is_some()
-                            && !relay.bridges.as_ref().unwrap().shadowsocks.is_empty()
+                        relay.active && relay.endpoint_type == (types::relay::RelayType::Bridge as i32)
                     });
                     if !city.relays.is_empty() {
                         Some(city)
