@@ -161,11 +161,15 @@ class AccountTokenRow: UIView {
 
     var value: String? {
         didSet {
-            valueButton.setTitle(value, for: .normal)
+            concealedAccountNumber = StringFormatter.concealedAccountNumber(from: value ?? "")
+            accountNumberLabel.text = concealedAccountNumber
             accessibilityValue = value
         }
     }
-    var actionHandler: (() -> Void)?
+    var copyAccountNumber: (() -> Void)?
+    var concealedAccountNumber = ""
+    var isAccountNumberConcealed = true
+    var isBlockingCopy = false
 
     private let textLabel: UILabel = {
         let textLabel = UILabel()
@@ -179,6 +183,16 @@ class AccountTokenRow: UIView {
         textLabel.font = UIFont.systemFont(ofSize: 14)
         textLabel.textColor = UIColor(white: 1.0, alpha: 0.6)
         return textLabel
+    }()
+
+    private let accountNumberLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = UIFont.systemFont(ofSize: 17)
+        label.textColor = .white
+        label.textAlignment = .left
+        label.text = ""
+        return label
     }()
 
     private let valueButton: UIButton = {
@@ -197,21 +211,55 @@ class AccountTokenRow: UIView {
         return button
     }()
 
+    private var showHideButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setImage(UIImage(named: "IconShow"), for: .normal)
+        button.tintColor = .white
+        button.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        return button
+    }()
+
+    private var copyButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setImage(UIImage(named: "IconCopy"), for: .normal)
+        button.tintColor = .white
+        button.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        return button
+    }()
+
+    private let copyIcon: UIImage = {
+        UIImage(named: "IconTick") ?? UIImage()
+    }()
+
     override init(frame: CGRect) {
         super.init(frame: frame)
 
         addSubview(textLabel)
-        addSubview(valueButton)
+        addSubview(accountNumberLabel)
+        addSubview(showHideButton)
+        addSubview(copyButton)
 
         NSLayoutConstraint.activate([
             textLabel.topAnchor.constraint(equalTo: topAnchor),
             textLabel.leadingAnchor.constraint(equalTo: leadingAnchor),
             textLabel.trailingAnchor.constraint(greaterThanOrEqualTo: trailingAnchor),
 
-            valueButton.topAnchor.constraint(equalTo: textLabel.bottomAnchor, constant: 8),
-            valueButton.leadingAnchor.constraint(equalTo: leadingAnchor),
-            valueButton.trailingAnchor.constraint(equalTo: trailingAnchor),
-            valueButton.bottomAnchor.constraint(equalTo: bottomAnchor)
+            accountNumberLabel.topAnchor.constraint(equalTo: textLabel.bottomAnchor, constant: 8),
+            accountNumberLabel.leadingAnchor.constraint(equalTo: leadingAnchor),
+            accountNumberLabel.trailingAnchor.constraint(equalTo: showHideButton.leadingAnchor),
+            accountNumberLabel.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            showHideButton.topAnchor.constraint(equalTo: textLabel.bottomAnchor, constant: 8),
+            showHideButton.leadingAnchor.constraint(equalTo: accountNumberLabel.trailingAnchor),
+            showHideButton.trailingAnchor.constraint(equalTo: copyButton.leadingAnchor, constant: -24),
+            showHideButton.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            copyButton.topAnchor.constraint(equalTo: textLabel.bottomAnchor, constant: 8),
+            copyButton.leadingAnchor.constraint(equalTo: showHideButton.trailingAnchor, constant: 24),
+            copyButton.trailingAnchor.constraint(equalTo: trailingAnchor),
+            copyButton.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
         isAccessibilityElement = true
@@ -225,7 +273,8 @@ class AccountTokenRow: UIView {
         )
         accessibilityCustomActions = [UIAccessibilityCustomAction(name: actionName, target: self, selector: #selector(performAccessibilityAction))]
 
-        valueButton.addTarget(self, action: #selector(handleTap), for: .touchUpInside)
+        showHideButton.addTarget(self, action: #selector(didTapShowHideButton), for: .touchUpInside)
+        copyButton.addTarget(self, action: #selector(didTapCopyButton), for: .touchUpInside)
     }
 
     required init?(coder: NSCoder) {
@@ -233,11 +282,30 @@ class AccountTokenRow: UIView {
     }
 
     @objc private func handleTap() {
-        self.actionHandler?()
+        self.copyAccountNumber?()
     }
 
     @objc private func performAccessibilityAction() {
-        self.actionHandler?()
+        self.copyAccountNumber?()
+    }
+
+    @objc func didTapShowHideButton() {
+        showHideButton.setImage(UIImage(named: isAccountNumberConcealed ? "IconHide" : "IconShow"), for: .normal)
+        accountNumberLabel.text = isAccountNumberConcealed ? value : concealedAccountNumber
+        isAccountNumberConcealed.toggle()
+    }
+
+    @objc func didTapCopyButton() {
+        guard !isBlockingCopy else { return }
+        isBlockingCopy = true
+        copyAccountNumber?()
+        copyButton.setImage(copyIcon, for: .normal)
+        self.copyButton.tintColor = .successColor
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) {
+            self.copyButton.setImage(UIImage(named: "IconCopy"), for: .normal)
+            self.copyButton.tintColor = .white
+            self.isBlockingCopy = false
+        }
     }
 }
 
