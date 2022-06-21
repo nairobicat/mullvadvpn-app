@@ -517,9 +517,7 @@ message Relay {
 	bool owned = 6;
 	string provider = 7;
 	fixed64 weight = 8;
-	RelayTunnels tunnels = 9;
-	RelayBridges bridges = 10;
-	Location location = 11;
+	Location location = 9;
 }
 
 message Location {
@@ -529,11 +527,6 @@ message Location {
 	string city_code = 4;
 	double latitude = 5;
 	double longitude = 6;
-}
-
-message RelayTunnels {
-    repeated OpenVpnEndpointData openvpn = 1;
-    repeated WireguardEndpointData wireguard = 2;
 }
 
 message RelayBridges {
