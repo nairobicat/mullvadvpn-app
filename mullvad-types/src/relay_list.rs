@@ -86,7 +86,7 @@ pub struct Relay {
 }
 
 /// Specifies the type of a relay or relay-specific endpoint data.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RelayEndpointData {
     Openvpn,

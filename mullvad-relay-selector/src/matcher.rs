@@ -216,7 +216,7 @@ impl WireguardMatcher {
         let host = self.get_address_for_wireguard_relay(relay)?;
         let port = self.get_port_for_wireguard_relay(data)?;
         let peer_config = wireguard::PeerConfig {
-            public_key: relay.endpoint_data.unwrap_wireguard_ref().public_key,
+            public_key: relay.endpoint_data.unwrap_wireguard_ref().public_key.clone(),
             endpoint: SocketAddr::new(host, port),
             allowed_ips: all_of_the_internet(),
             psk: None,
