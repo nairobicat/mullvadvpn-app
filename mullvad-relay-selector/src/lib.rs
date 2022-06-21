@@ -3,7 +3,7 @@
 
 use chrono::{DateTime, Local};
 use ipnetwork::IpNetwork;
-use matcher::AnyTunnelMatcher;
+use matcher::{AnyTunnelMatcher, OpenVpnMatcher};
 use mullvad_types::{
     endpoint::{MullvadEndpoint, MullvadWireguardEndpoint},
     location::{Coordinates, Location},
@@ -41,12 +41,8 @@ pub mod updater;
 const DATE_TIME_FORMAT_STR: &str = "%Y-%m-%d %H:%M:%S%.3f";
 const RELAYS_FILENAME: &str = "relays.json";
 
-const DEFAULT_WIREGUARD_PORT: u16 = 51820;
-const WIREGUARD_EXIT_CONSTRAINTS: WireguardMatcher = WireguardMatcher {
-    peer: None,
-    port: Constraint::Only(DEFAULT_WIREGUARD_PORT),
-    ip_version: Constraint::Only(IpVersion::V4),
-};
+const WIREGUARD_EXIT_PORT: Constraint<u16> = Constraint::Only(51820);
+const WIREGUARD_EXIT_IP_VERSION: Constraint<IpVersion> = Constraint::Only(IpVersion::V4);
 
 const UDP2TCP_PORTS: [u16; 3] = [80, 443, 5001];
 
@@ -306,8 +302,15 @@ impl RelaySelector {
             return None;
         }
 
-        let matcher = RelayMatcher::from(
-            relay_constraints.clone()
+        let (openvpn_data, wireguard_data) = {
+            let relays = self.parsed_relays.lock();
+            (relays.locations.openvpn.clone(), relays.locations.wireguard.clone())
+        };
+
+        let matcher = RelayMatcher::new(
+            relay_constraints.clone(),
+            openvpn_data,
+            wireguard_data,
         );
         let mut matching_locations: Vec<Location> = self
             .parsed_relays
@@ -344,11 +347,11 @@ impl RelaySelector {
             location: location.clone(),
             providers: providers.clone(),
             ownership: ownership.clone(),
-            tunnel: openvpn_constraints,
+            tunnel: OpenVpnMatcher::new(openvpn_constraints, self.parsed_relays.lock().locations.openvpn.clone()),
         };
 
-        if relay_matcher.tunnel.port.is_any() && bridge_state == BridgeState::On {
-            relay_matcher.tunnel.port = Constraint::Only(TransportPort {
+        if relay_matcher.tunnel.constraints.port.is_any() && bridge_state == BridgeState::On {
+            relay_matcher.tunnel.constraints.port = Constraint::Only(TransportPort {
                 protocol: TransportProtocol::Tcp,
                 port: Constraint::Any,
             });
@@ -360,7 +363,7 @@ impl RelaySelector {
 
         let (preferred_port, preferred_protocol) =
             Self::preferred_openvpn_constraints(retry_attempt);
-        let should_try_preferred = match &mut preferred_relay_matcher.tunnel.port {
+        let should_try_preferred = match &mut preferred_relay_matcher.tunnel.constraints.port {
             any @ Constraint::Any => {
                 *any = Constraint::Only(TransportPort {
                     protocol: preferred_protocol,
@@ -393,7 +396,7 @@ impl RelaySelector {
     ) -> Result<NormalSelectedRelay, Error> {
         let mut exit_matcher = RelayMatcher {
             location: exit_location,
-            tunnel: WIREGUARD_EXIT_CONSTRAINTS.clone(),
+            tunnel: self.wireguard_exit_matcher(),
             ..entry_matcher.clone()
         };
 
@@ -452,7 +455,7 @@ impl RelaySelector {
             location: location.clone(),
             providers: providers.clone(),
             ownership: ownership.clone(),
-            tunnel: wireguard_constraints.clone().into(),
+            tunnel: WireguardMatcher::new(wireguard_constraints.clone(), self.parsed_relays.lock().locations.wireguard.clone()),
         };
 
         let mut preferred_matcher: RelayMatcher<WireguardMatcher> = entry_relay_matcher.clone();
@@ -480,7 +483,15 @@ impl RelaySelector {
         &self,
         relay_constraints: &RelayConstraints,
     ) -> Result<NormalSelectedRelay, Error> {
-        let mut matcher: RelayMatcher<AnyTunnelMatcher> = relay_constraints.clone().into();
+        let (openvpn_data, wireguard_data) = {
+            let relays = self.parsed_relays.lock();
+            (relays.locations.openvpn.clone(), relays.locations.wireguard.clone())
+        };
+        let mut matcher = RelayMatcher::new(
+            relay_constraints.clone(),
+            openvpn_data,
+            wireguard_data,
+        );
 
         let mut selected_entry_relay = None;
         let mut selected_entry_endpoint = None;
@@ -495,7 +506,7 @@ impl RelaySelector {
 
         // Pick the entry relay first if its location constraint is a subset of the exit location.
         if relay_constraints.wireguard_constraints.use_multihop {
-            matcher.tunnel.wireguard = WIREGUARD_EXIT_CONSTRAINTS.clone();
+            matcher.tunnel.wireguard = self.wireguard_exit_matcher();
             if relay_constraints
                 .wireguard_constraints
                 .entry_location
@@ -1139,6 +1150,13 @@ impl RelaySelector {
         } else {
             Ok(bundled_relays)
         }
+    }
+
+    fn wireguard_exit_matcher(&self) -> WireguardMatcher {
+        let mut tunnel = WireguardMatcher::from_endpoint(self.parsed_relays.lock().locations.wireguard.clone());
+        tunnel.ip_version = WIREGUARD_EXIT_IP_VERSION;
+        tunnel.port = WIREGUARD_EXIT_PORT;
+        tunnel
     }
 }
 
