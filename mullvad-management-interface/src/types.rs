@@ -720,6 +720,8 @@ impl From<mullvad_types::relay_list::RelayListCountry> for RelayListCountry {
 
 impl From<mullvad_types::relay_list::Relay> for Relay {
     fn from(relay: mullvad_types::relay_list::Relay) -> Self {
+        use mullvad_types::relay_list::RelayEndpointData as MullvadEndpointData;
+
         Self {
             hostname: relay.hostname,
             ipv4_addr_in: relay.ipv4_addr_in.to_string(),
@@ -732,6 +734,15 @@ impl From<mullvad_types::relay_list::Relay> for Relay {
             owned: relay.owned,
             provider: relay.provider,
             weight: relay.weight,
+            endpoint_type: match &relay.endpoint_data {
+                MullvadEndpointData::Openvpn => relay::RelayType::Openvpn as i32,
+                MullvadEndpointData::Bridge => relay::RelayType::Bridge as i32,
+                MullvadEndpointData::Wireguard(_) => relay::RelayType::Wireguard as i32,
+            },
+            endpoint_data: match relay.endpoint_data {
+                MullvadEndpointData::Wireguard(data) => Some(data),
+                _ => None,
+            },
             location: relay.location.map(|location| Location {
                 country: location.country,
                 country_code: location.country_code,
