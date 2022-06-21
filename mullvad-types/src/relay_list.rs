@@ -116,21 +116,6 @@ pub struct OpenVpnEndpoint {
     pub protocol: TransportProtocol,
 }
 
-// FIXME
-/*
-impl OpenVpnEndpointData {
-    pub fn into_mullvad_endpoint(self, host: IpAddr) -> MullvadEndpoint {
-        MullvadEndpoint::OpenVpn(Endpoint::new(host, self.port, self.protocol))
-    }
-}
-
-impl fmt::Display for OpenVpnEndpointData {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "{} port {}", self.protocol, self.port)
-    }
-}
-*/
-
 /// Contains data about all WireGuard endpoints, such as valid port ranges.
 #[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize, Debug)]
 #[cfg_attr(target_os = "android", derive(IntoJava))]
@@ -165,26 +150,6 @@ pub struct WireguardRelayEndpointData {
     /// Public key used by the relay peer
     pub public_key: wireguard::PublicKey,
 }
-
-// FIXME
-/*
-impl fmt::Display for WireguardEndpointData {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(
-            f,
-            "gateways {} - {} port_ranges {{ {} }} public_key {}",
-            self.ipv4_gateway,
-            self.ipv6_gateway,
-            self.port_ranges
-                .iter()
-                .map(|range| format!("[{} - {}]", range.0, range.1))
-                .collect::<Vec<_>>()
-                .join(","),
-            self.public_key,
-        )
-    }
-}
-*/
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 pub struct BridgeEndpointData {
